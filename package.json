@@ -1,0 +1,29 @@
+{
+  "name": "realmVR",
+  "version": "0.1.0",
+  "description": "Positional tracking for Google Cardboard",
+  "homepage": "https://github.com/syntheticore/realmVR",
+  "author": "Björn Breitgoff <syntheticore@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/syntheticore/realmVR.git"
+  },
+  "bugs": {
+    "url": "https://github.com/syntheticore/realmVR/issues"
+  },
+  "main": "./src/realmVR.js",
+  "dependencies": {
+    "tracking": "^1.1.1",
+    "socket.io": "^1.3.7",
+    "three": "^0.72.0",
+    "eakwell": "^0.1.0"
+  },
+  "keywords": [
+    "vr",
+    "cardboard",
+    "presence",
+    "body tracking",
+    "virtual reality"
+  ]
+}
