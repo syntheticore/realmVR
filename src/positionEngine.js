@@ -7,6 +7,11 @@ var PositionEngine = function(uuid, cb) {
   var absolute;
   var screenOrientation = window.orientation || 0;
   var deviceOrientation = {};
+  var deviceMotion = {};
+
+  var convergenceHeadPos = 0.2;
+  var convergenceHeadRot = 0.1;
+  var convergenceHands = 0.6;
 
   var receiver = new Receiver(uuid, function(body) {
     absolute = body;
@@ -20,6 +25,10 @@ var PositionEngine = function(uuid, cb) {
     deviceOrientation = e;
   });
 
+  var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
+    deviceMotion = e;
+  });
+
   var body = {
     head: {
       position: {
@@ -29,12 +38,6 @@ var PositionEngine = function(uuid, cb) {
       }
     }
   };
-
-  var convergenceHeadPos = 0.2;
-  var convergenceHeadRot = 0.1;
-  var convergenceHands = 0.6;
-
-  var lastHeading = 0;
 
   return {
     update: function(delta) {
@@ -46,40 +49,45 @@ var PositionEngine = function(uuid, cb) {
       // body.right.position = mixPos(body.right.position, absolute.right.position, convergenceHands);
       // body.right.rotation = mixRot(body.right.rotation, absolute.right.rotation, convergenceHands);
 
+      // Determine device orientation
       var alpha = deviceOrientation.alpha || 0;
       var beta  = deviceOrientation.beta  || 90;
       var gamma = deviceOrientation.gamma || 0;
+      var orientation = toQuaternion(alpha, beta, gamma, screenOrientation);
 
-      var q = toQuaternion(alpha, beta, gamma, screenOrientation);
-      var heading = headingFromQuaternion(q);
-
+      // Calculate heading with possible drift
+      var heading = headingFromQuaternion(orientation);
       // LOG(heading);
 
-      // var turn = alpha - lastAlpha;
-
+      // Measure real heading with possible noise
       var headingAbs = heading;
-      if(deviceOrientation.webkitCompassHeading) {
-        //XXX landscape only
-        if(deviceOrientation.gamma > 0) {
-          headingAbs = 360 - deviceOrientation.webkitCompassHeading;
-        } else {
-          headingAbs = 180 - deviceOrientation.webkitCompassHeading;
+      if(deviceOrientation.webkitCompassHeading && deviceOrientation.webkitCompassAccuracy > 0.5) {
+        // Only in this interval can compass values be trusted
+        if(beta < 90 && beta > -90) {
+          var headingAbs = deviceOrientation.webkitCompassHeading + (gamma > 0 ? beta : -beta);
+          if(headingAbs < 0) {
+            headingAbs = headingAbs + 360;
+          } else if(headingAbs > 360) {
+            headingAbs = headingAbs - 360;
+          }
+          headingAbs = 360 - headingAbs;
         }
       }
-
       // LOG(headingAbs);
 
+      // Calculate quaternion that corrects drift
       var headingCorrection = headingAbs - heading;
-      if(headingCorrection > 180) {
-        headingCorrection = -360 + headingCorrection
+      if(Math.abs(headingCorrection) > 180) {
+        headingCorrection = (360 - Math.abs(headingCorrection)) * (headingCorrection > 0 ? -1 : 1);
       }
-
       // LOG(headingCorrection);
+      var correction = quaternionFromHeading(headingCorrection);
 
-      // body.head.position  = mixPos(body.head.position, absolute.head.position, convergenceHeadPos);
-      body.head.orientation = q;
+      // body.head.position = mixPos(body.head.position, absolute.head.position, convergenceHeadPos);
+      body.head.orientation = orientation;
 
-      lastHeading = heading;
+      // LOG("REL: " + heading + " ABS: " + headingAbs);
+
       return body;
     }
   };
