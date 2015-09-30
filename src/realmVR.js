@@ -45,6 +45,9 @@ var realmVR = {
         });
         console.log("RealmVR: Client disconnected");
       });
+      socket.on('debug', function(txt){
+        console.log(txt);
+      });
     });
   },
 

@@ -1,6 +1,5 @@
 var _ = require('eakwell');
 
-var Aruco = require('./aruco.js');
 var Posit = require('./posit.js').Posit;
 var VideoSource = require('./videoSource.js');
 
@@ -9,21 +8,6 @@ var ColorTracker = function(cb, width, height) {
   height = height || 480;
 
   var source = new VideoSource(width, height);
-  var markerDetector = new Aruco.Detector();
-
-  var detectArucoMarkers = function(imageData) {
-    var out = {};
-    var markers = markerDetector.detect(imageData);
-    _.each(markers, function(marker) {
-      var part = {
-        21: 'head',
-        23: 'left',
-        24: 'right'
-      }[marker.id];
-      out[part] = marker.corners;
-    });
-    return out;
-  };
 
   // Configure color detector
   var colorCombos = {
@@ -73,7 +57,6 @@ var ColorTracker = function(cb, width, height) {
       });
       if(group) {
         // Add to existing group
-        // console.log(group);
         group.push(blob);
       } else {
         // Start new group
@@ -85,7 +68,7 @@ var ColorTracker = function(cb, width, height) {
 
   // Return all color groups forming a
   // four corner marker in the given image
-  var detectColorMarkers = function(imageData) {
+  var detectMarkers = function(imageData) {
     var blobs = detectBlobs(imageData);
     // Group adjacent blobs to form markers
     var groups = makeContactGroups(blobs);
@@ -128,9 +111,8 @@ var ColorTracker = function(cb, width, height) {
   // Detect the real world positions of
   // all body parts using the given image
   var findBodyParts = function(imageData) {
-    var markers = detectColorMarkers(imageData);
+    var markers = detectMarkers(imageData);
     console.log(markers);
-    // var markers = detectArucoMarkers(imageData);
     var poses = _.map(markers, function(marker) {
       return marker && poseFromMarker(marker);
     });
@@ -153,7 +135,6 @@ var ColorTracker = function(cb, width, height) {
 
     start: function() {
       self.running = true;
-      console.log("started");
       return source.play().then(tick);
     },
 

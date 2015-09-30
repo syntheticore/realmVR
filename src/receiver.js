@@ -12,6 +12,10 @@ var Receiver = function(uuid, cb) {
   socket.on('data', function(body) {
     cb(body);
   });
+
+  LOG = function(txt) {
+    socket.emit('debug', txt);
+  };
 };
 
 module.exports = Receiver;
