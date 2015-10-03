@@ -14,10 +14,10 @@ var RealmVRControls = function(object, engine) {
     self.enabled = false;
   };
 
-  self.update = function() {
+  self.update = function(delta) {
     if(!self.enabled) return;
-    var q = engine.update().head.orientation;
-    self.object.quaternion.copy(q);
+    var body = engine.update(delta);
+    self.object.quaternion.copy(body.head.orientation);
   };
 
   self.dispose = function() {

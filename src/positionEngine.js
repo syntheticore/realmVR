@@ -4,21 +4,22 @@ var _ = require('eakwell');
 var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
-  var absolute;
+  var convergenceHeadPos = 0.2;
+  var convergenceHeading = 0.01;
+  var convergenceHands = 0.6;
+
+  var bodyAbsolute = {};
   var screenOrientation = window.orientation || 0;
   var deviceOrientation = {};
   var deviceMotion = {};
 
-  var convergenceHeadPos = 0.2;
-  var convergenceHeadRot = 0.1;
-  var convergenceHands = 0.6;
-
   var receiver = new Receiver(uuid, function(body) {
-    absolute = body;
+    bodyAbsolute = body;
   });
 
   var onScreenOrientation = _.on(window, 'orientationchange', function(e) {
     screenOrientation = window.orientation;
+    lastOrientation = undefined;
   });
 
   var onDeviceOrientation = _.on(window, 'deviceorientation', function(e) {
@@ -35,58 +36,61 @@ var PositionEngine = function(uuid, cb) {
         x: 0,
         y: 0,
         z: 0
-      }
+      },
+      orientation: new THREE.Quaternion()
     }
   };
 
+  var lastOrientation;
+
   return {
     update: function(delta) {
-      // LOG('-----');
-
-      // body.left.position  = mixPos(body.left.position, absolute.left.position, convergenceHands);
-      // body.left.rotation  = mixRot(body.left.rotation, absolute.left.rotation, convergenceHands);
-
-      // body.right.position = mixPos(body.right.position, absolute.right.position, convergenceHands);
-      // body.right.rotation = mixRot(body.right.rotation, absolute.right.rotation, convergenceHands);
-
       // Determine device orientation
       var alpha = deviceOrientation.alpha || 0;
       var beta  = deviceOrientation.beta  || 90;
       var gamma = deviceOrientation.gamma || 0;
       var orientation = toQuaternion(alpha, beta, gamma, screenOrientation);
 
-      // Calculate heading with possible drift
-      var heading = headingFromQuaternion(orientation);
-      // LOG(heading);
+      if(lastOrientation == undefined) lastOrientation = orientation;
+      var rotation = quaternionDifference(lastOrientation, orientation);
+      lastOrientation = orientation;
 
-      // Measure real heading with possible noise
+      var heading = headingFromQuaternion(body.head.orientation);
+
+      // Only in this interval can compass values be trusted
+      //XXX if this should not work on android, compare gamma interval instead of beta
       var headingAbs = heading;
-      if(deviceOrientation.webkitCompassHeading && deviceOrientation.webkitCompassAccuracy > 0.5) {
-        // Only in this interval can compass values be trusted
-        if(beta < 90 && beta > -90) {
-          var headingAbs = deviceOrientation.webkitCompassHeading + (gamma > 0 ? beta : -beta);
-          if(headingAbs < 0) {
-            headingAbs = headingAbs + 360;
-          } else if(headingAbs > 360) {
-            headingAbs = headingAbs - 360;
-          }
-          headingAbs = 360 - headingAbs;
+      if(beta < 90 && beta > -90 && deviceOrientation.webkitCompassHeading != undefined) {
+        // Measure real heading with possible noise
+        headingAbs = deviceOrientation.webkitCompassHeading + (gamma > 0 ? beta : -beta);
+        if(headingAbs < 0) {
+          headingAbs = headingAbs + 360;
+        } else if(headingAbs > 360) {
+          headingAbs = headingAbs - 360;
         }
+        headingAbs = 360 - headingAbs;
       }
-      // LOG(headingAbs);
 
       // Calculate quaternion that corrects drift
-      var headingCorrection = headingAbs - heading;
-      if(Math.abs(headingCorrection) > 180) {
-        headingCorrection = (360 - Math.abs(headingCorrection)) * (headingCorrection > 0 ? -1 : 1);
+      var headingDiff = headingAbs - heading;
+      if(Math.abs(headingDiff) > 180) {
+        headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
-      // LOG(headingCorrection);
-      var correction = quaternionFromHeading(headingCorrection);
+      var headingCorrection = quaternionFromHeading(headingDiff)
+      rotation.slerp(headingCorrection, convergenceHeading);
 
-      // body.head.position = mixPos(body.head.position, absolute.head.position, convergenceHeadPos);
-      body.head.orientation = orientation;
+      // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
-      // LOG("REL: " + heading + " ABS: " + headingAbs);
+      body.head.orientation.multiply(rotation);
+
+      // body.head.position = mixPos(body.head.position, bodyAbsolute.head.position, convergenceHeadPos);
+
+      // body.left.position  = mixPos(body.left.position, bodyAbsolute.left.position, convergenceHands);
+      // body.left.rotation  = mixRot(body.left.rotation, bodyAbsolute.left.rotation, convergenceHands);
+
+      // body.right.position = mixPos(body.right.position, bodyAbsolute.right.position, convergenceHands);
+      // body.right.rotation = mixRot(body.right.rotation, bodyAbsolute.right.rotation, convergenceHands);
+
 
       return body;
     }
@@ -102,30 +106,35 @@ var toQuaternion = (function() {
 
   // The angles alpha, beta and gamma form a set of intrinsic Tait-Bryan angles of type Z-X'-Y''
   return function(alpha, beta, gamma, orientation) {
-    var quaternion = new THREE.Quaternion();
+    var q = new THREE.Quaternion();
     euler.set(THREE.Math.degToRad(beta), THREE.Math.degToRad(alpha), THREE.Math.degToRad(-gamma), 'YXZ');                    // 'ZXY' for the device, but 'YXZ' for us
-    quaternion.setFromEuler(euler); // orient the device
-    quaternion.multiply(q1); // camera looks out the back of the device, not the top
-    quaternion.multiply(q0.setFromAxisAngle(zee, THREE.Math.degToRad(-orientation))); // adjust for screen orientation
-    return quaternion;
+    q.setFromEuler(euler); // orient the device
+    q.multiply(q1); // camera looks out the back of the device, not the top
+    q.multiply(q0.setFromAxisAngle(zee, THREE.Math.degToRad(-orientation))); // adjust for screen orientation
+    return q;
   };
 })();
 
 // Determine cardinal direction from orientation
-var headingFromQuaternion = function(quaternion) {
+var headingFromQuaternion = function(q) {
   var toFront = new THREE.Vector3(1, 0, 0);
-  toFront.applyQuaternion(quaternion);
+  toFront.applyQuaternion(q);
   toFront.setY(0);
-  var rot = toFront.angleTo(new THREE.Vector3(1, 0, 0));
-  rot = THREE.Math.radToDeg(rot);
+  var heading = toFront.angleTo(new THREE.Vector3(1, 0, 0));
+  heading = THREE.Math.radToDeg(heading);
   if((toFront.x > 0 && toFront.z > 0)  || (toFront.x < 0 && toFront.z > 0)) {
-    rot = 360 - rot;
+    heading = 360 - heading;
   }
-  return rot;
+  return heading;
 };
 
 var quaternionFromHeading = function(heading) {
+  var q = new THREE.Quaternion();
+  return q;
+};
 
+var quaternionDifference = function(q1, q2) {
+  return q1.clone().inverse().multiply(q2.clone());
 };
 
 var mixPos = function(vec1, vec2, ratio) {
