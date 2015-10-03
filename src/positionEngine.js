@@ -5,7 +5,7 @@ var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
   var convergenceHeadPos = 0.2;
-  var convergenceHeading = 0.01;
+  var convergenceHeading = 0.0001;
   var convergenceHands = 0.6;
 
   var bodyAbsolute = {};
@@ -72,16 +72,16 @@ var PositionEngine = function(uuid, cb) {
       }
 
       // Calculate quaternion that corrects drift
-      var headingDiff = headingAbs - heading;
+      var headingDiff = heading - headingAbs;
       if(Math.abs(headingDiff) > 180) {
         headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
-      var headingCorrection = quaternionFromHeading(headingDiff)
-      rotation.slerp(headingCorrection, convergenceHeading);
+      var headingCorrection = quaternionFromHeading(headingDiff * convergenceHeading);
+      headingCorrection.multiply(body.head.orientation).multiply(rotation);
 
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
-      body.head.orientation.multiply(rotation);
+      body.head.orientation = headingCorrection;
 
       // body.head.position = mixPos(body.head.position, bodyAbsolute.head.position, convergenceHeadPos);
 
@@ -107,7 +107,7 @@ var toQuaternion = (function() {
   // The angles alpha, beta and gamma form a set of intrinsic Tait-Bryan angles of type Z-X'-Y''
   return function(alpha, beta, gamma, orientation) {
     var q = new THREE.Quaternion();
-    euler.set(THREE.Math.degToRad(beta), THREE.Math.degToRad(alpha), THREE.Math.degToRad(-gamma), 'YXZ');                    // 'ZXY' for the device, but 'YXZ' for us
+    euler.set(THREE.Math.degToRad(beta), THREE.Math.degToRad(alpha), THREE.Math.degToRad(-gamma), 'YXZ'); // 'ZXY' for the device, but 'YXZ' for us
     q.setFromEuler(euler); // orient the device
     q.multiply(q1); // camera looks out the back of the device, not the top
     q.multiply(q0.setFromAxisAngle(zee, THREE.Math.degToRad(-orientation))); // adjust for screen orientation
@@ -120,8 +120,8 @@ var headingFromQuaternion = function(q) {
   var toFront = new THREE.Vector3(1, 0, 0);
   toFront.applyQuaternion(q);
   toFront.setY(0);
-  var heading = toFront.angleTo(new THREE.Vector3(1, 0, 0));
-  heading = THREE.Math.radToDeg(heading);
+  toFront.normalize();
+  var heading = THREE.Math.radToDeg(toFront.angleTo(new THREE.Vector3(1, 0, 0)));
   if((toFront.x > 0 && toFront.z > 0)  || (toFront.x < 0 && toFront.z > 0)) {
     heading = 360 - heading;
   }
@@ -130,6 +130,8 @@ var headingFromQuaternion = function(q) {
 
 var quaternionFromHeading = function(heading) {
   var q = new THREE.Quaternion();
+  var axis = new THREE.Vector3(1, 0, 0);
+  q.setFromAxisAngle(axis, THREE.Math.degToRad(heading));
   return q;
 };
 
