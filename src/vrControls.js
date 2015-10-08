@@ -18,6 +18,7 @@ var RealmVRControls = function(object, engine) {
     if(!self.enabled) return;
     var body = engine.update(delta);
     self.object.quaternion.copy(body.head.orientation);
+    self.object.position.set(body.head.position.x, body.head.position.y, body.head.position.z);
   };
 
   self.dispose = function() {

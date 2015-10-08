@@ -5,16 +5,30 @@ var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
   var convergenceHeadPos = 0.2;
-  var convergenceHeading = 0.0001;
+  var convergenceHeadVelocity = 0.001;
+  var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
 
-  var bodyAbsolute = {};
   var screenOrientation = window.orientation || 0;
   var deviceOrientation = {};
-  var deviceMotion = {};
+  var velocity = new THREE.Vector3(0, 0, 0);
+  
+  var bodyAbs = {
+    head: {
+      position: new THREE.Vector3(0, 0, 0),
+      orientation: new THREE.Quaternion()
+    }
+  };
 
-  var receiver = new Receiver(uuid, function(body) {
-    bodyAbsolute = body;
+  var body = {
+    head: {
+      position: new THREE.Vector3(0, 0, 0),
+      orientation: new THREE.Quaternion()
+    }
+  };
+
+  var receiver = new Receiver(uuid, function(b) {
+    bodyAbs = b;
   });
 
   var onScreenOrientation = _.on(window, 'orientationchange', function(e) {
@@ -27,18 +41,44 @@ var PositionEngine = function(uuid, cb) {
   });
 
   var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
-    deviceMotion = e;
+    // Convert from device space to world space
+    var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z);
+    acceleration.applyQuaternion(body.head.orientation);
+    // Integrate acceleration over time to yield velocity
+    velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
+    velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
+    velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
+    LOG("X: " + Math.round(velocity.x) + " Y: " + Math.round(velocity.y) + " Z: " + Math.round(velocity.z));
   });
 
-  var body = {
-    head: {
-      position: {
-        x: 0,
-        y: 0,
-        z: 0
-      },
-      orientation: new THREE.Quaternion()
+  var dampenAcceleration = function(acceleration, velocity, interval) {
+    // Correct more aggressively the closer we get to maxVelocity
+    var maxVelocity = 30;
+    var correctionFactor = Math.min(1, Math.abs(velocity / maxVelocity));
+    // Strengthen naturally opposing movements, weaken movements that would further accelerate us
+    var opposing = ((acceleration.x >= 0 && velocity < 0) || (acceleration.x < 0 && velocity >= 0));
+    var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
+    // Slowly converge towards zero to cancel remaining velocity when standing still
+    var breaking = dampened - (velocity * interval * convergenceHeadVelocity);
+    return breaking;
+  };
+
+  var getAbsoluteHeading = function() {
+    var headingAbs;
+    var beta  = deviceOrientation.beta  || 90;
+    // Only in this interval can compass values be trusted
+    //XXX if this should not work on android, compare gamma interval instead of beta
+    if(beta < 90 && beta > -90 && deviceOrientation.webkitCompassHeading != undefined) {
+      // Measure real heading with possible noise
+      headingAbs = deviceOrientation.webkitCompassHeading + (deviceOrientation.gamma > 0 ? beta : -beta);
+      if(headingAbs < 0) {
+        headingAbs = headingAbs + 360;
+      } else if(headingAbs > 360) {
+        headingAbs = headingAbs - 360;
+      }
+      headingAbs = 360 - headingAbs;
     }
+    return headingAbs;
   };
 
   var lastOrientation;
@@ -51,46 +91,40 @@ var PositionEngine = function(uuid, cb) {
       var gamma = deviceOrientation.gamma || 0;
       var orientation = toQuaternion(alpha, beta, gamma, screenOrientation);
 
+      // Determine rotation since last update
       if(lastOrientation == undefined) lastOrientation = orientation;
       var rotation = quaternionDifference(lastOrientation, orientation);
       lastOrientation = orientation;
 
+      // Heading as believed by gyros
       var heading = headingFromQuaternion(body.head.orientation);
 
-      // Only in this interval can compass values be trusted
-      //XXX if this should not work on android, compare gamma interval instead of beta
-      var headingAbs = heading;
-      if(beta < 90 && beta > -90 && deviceOrientation.webkitCompassHeading != undefined) {
-        // Measure real heading with possible noise
-        headingAbs = deviceOrientation.webkitCompassHeading + (gamma > 0 ? beta : -beta);
-        if(headingAbs < 0) {
-          headingAbs = headingAbs + 360;
-        } else if(headingAbs > 360) {
-          headingAbs = headingAbs - 360;
-        }
-        headingAbs = 360 - headingAbs;
-      }
+      // Actual compass heading
+      var headingAbs = getAbsoluteHeading();
 
-      // Calculate quaternion that corrects drift
-      var headingDiff = heading - headingAbs;
+      // Calculate quaternion that corrects rotational drift
+      var headingDiff = headingAbs ? heading - headingAbs : 0;
       if(Math.abs(headingDiff) > 180) {
         headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
       var headingCorrection = quaternionFromHeading(headingDiff * convergenceHeading);
-      headingCorrection.multiply(body.head.orientation).multiply(rotation);
 
+      // Modify head orientation according to gyro rotation and apply compass correction
+      headingCorrection.multiply(body.head.orientation).multiply(rotation);
+      body.head.orientation = headingCorrection;
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
-      body.head.orientation = headingCorrection;
+      // Integrate velocity to yield head position, converge towards absolute position from tracker
+      var correctHeightOnly = true;
+      body.head.position.x += velocity.x + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos);
+      body.head.position.y += velocity.y +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos;
+      body.head.position.z += velocity.z + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos);
 
-      // body.head.position = mixPos(body.head.position, bodyAbsolute.head.position, convergenceHeadPos);
+      // body.left.position  = mixPos(body.left.position, bodyAbs.left.position, convergenceHands);
+      // body.left.rotation  = mixRot(body.left.rotation, bodyAbs.left.rotation, convergenceHands);
 
-      // body.left.position  = mixPos(body.left.position, bodyAbsolute.left.position, convergenceHands);
-      // body.left.rotation  = mixRot(body.left.rotation, bodyAbsolute.left.rotation, convergenceHands);
-
-      // body.right.position = mixPos(body.right.position, bodyAbsolute.right.position, convergenceHands);
-      // body.right.rotation = mixRot(body.right.rotation, bodyAbsolute.right.rotation, convergenceHands);
-
+      // body.right.position = mixPos(body.right.position, bodyAbs.right.position, convergenceHands);
+      // body.right.rotation = mixRot(body.right.rotation, bodyAbs.right.rotation, convergenceHands);
 
       return body;
     }
