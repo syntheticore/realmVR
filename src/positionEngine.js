@@ -4,8 +4,8 @@ var _ = require('eakwell');
 var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
-  var convergenceHeadPos = 0.005;
-  var convergenceHeadVelocity = 0.006;
+  var convergenceHeadPos = 0.03;
+  var convergenceHeadVelocity = 0.03;
   var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
 
@@ -49,19 +49,18 @@ var PositionEngine = function(uuid, cb) {
     velocity.x -= dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
     velocity.y -= dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
     velocity.z -= dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
-    // LOG("X: " + Math.round(velocity.x) + " Y: " + Math.round(velocity.y) + " Z: " + Math.round(velocity.z));
+    // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval) {
     var maxVelocity = 50;
-    var maxAcceleration = 30;
     // Correct more aggressively the closer we get to maxVelocity
     var correctionFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
     var opposing = ((acceleration.x >= 0 && velocity < 0) || (acceleration.x < 0 && velocity >= 0));
     var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
     // Slowly converge towards zero to cancel remaining velocity when standing still
-    var breaking = dampened + (velocity * interval * (1 + Math.abs(acceleration) / maxAcceleration) * convergenceHeadVelocity);
+    var breaking = dampened + (velocity * interval * 50 * (1 + Math.abs(acceleration)) * convergenceHeadVelocity);
     return breaking;
   };
 
@@ -111,22 +110,16 @@ var PositionEngine = function(uuid, cb) {
       }
       var headingCorrection = quaternionFromHeading(headingDiff * convergenceHeading);
 
-      // Modify head orientation according to gyro rotation and apply compass correction
+      // Modify head orientation according to gyro rotation and compass correction
       headingCorrection.multiply(body.head.orientation).multiply(rotation);
       body.head.orientation = headingCorrection;
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
       var correctHeightOnly = false;
-      body.head.position.x += (velocity.x + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos)) * delta;
-      body.head.position.y += (velocity.y +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos)  * delta;
-      body.head.position.z += (velocity.z + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos)) * delta;
-
-      // body.left.position  = mixPos(body.left.position, bodyAbs.left.position, convergenceHands);
-      // body.left.rotation  = mixRot(body.left.rotation, bodyAbs.left.rotation, convergenceHands);
-
-      // body.right.position = mixPos(body.right.position, bodyAbs.right.position, convergenceHands);
-      // body.right.rotation = mixRot(body.right.rotation, bodyAbs.right.rotation, convergenceHands);
+      body.head.position.x += velocity.x * delta / 30 + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos);
+      body.head.position.y += velocity.y * delta / 30 +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos;
+      body.head.position.z += velocity.z * delta / 30 + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos)
 
       return body;
     }
@@ -173,22 +166,6 @@ var quaternionFromHeading = function(heading) {
 
 var quaternionDifference = function(q1, q2) {
   return q1.clone().inverse().multiply(q2.clone());
-};
-
-var mixPos = function(vec1, vec2, ratio) {
-  return {
-    x: vec1.x * (1 - ratio) + vec2.x * ratio,
-    y: vec1.y * (1 - ratio) + vec2.y * ratio,
-    z: vec1.z * (1 - ratio) + vec2.z * ratio
-  };
-};
-
-var mixRot = function(vec1, vec2, ratio) {
-  return {
-    alpha: vec1.alpha * (1 - ratio) + vec2.alpha * ratio,
-    beta:  vec1.beta  * (1 - ratio) + vec2.beta  * ratio,
-    gamma: vec1.gamma * (1 - ratio) + vec2.gamma * ratio
-  };
 };
 
 module.exports = PositionEngine;
