@@ -26,4 +26,4 @@ var SpaceManager = function(uuid) {
   };
 };
 
-module.exports = PositionEngine;
+module.exports = SpaceManager;

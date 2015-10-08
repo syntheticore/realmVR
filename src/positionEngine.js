@@ -30,9 +30,9 @@ var PositionEngine = function(uuid) {
     return {
       head: {
         position: {
-          x: xPredictor.predict(),
-          y: yPredictor.predict(),
-          z: zPredictor.predict()
+          x: xPredictor.predict() || 0,
+          y: yPredictor.predict() || 0,
+          z: zPredictor.predict() || 0
         }
       }
     };
