@@ -5,7 +5,7 @@ var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
   var convergenceHeadPos = 0.005;
-  var convergenceHeadVelocity = 0.06;
+  var convergenceHeadVelocity = 0.006;
   var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
 
@@ -49,18 +49,19 @@ var PositionEngine = function(uuid, cb) {
     velocity.x -= dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
     velocity.y -= dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
     velocity.z -= dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
-    LOG("X: " + Math.round(velocity.x) + " Y: " + Math.round(velocity.y) + " Z: " + Math.round(velocity.z));
+    // LOG("X: " + Math.round(velocity.x) + " Y: " + Math.round(velocity.y) + " Z: " + Math.round(velocity.z));
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval) {
-    // Correct more aggressively the closer we get to maxVelocity
     var maxVelocity = 50;
-    var correctionFactor = Math.min(1, Math.abs(velocity / maxVelocity));
+    var maxAcceleration = 30;
+    // Correct more aggressively the closer we get to maxVelocity
+    var correctionFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
     var opposing = ((acceleration.x >= 0 && velocity < 0) || (acceleration.x < 0 && velocity >= 0));
     var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
     // Slowly converge towards zero to cancel remaining velocity when standing still
-    var breaking = dampened + (velocity * convergenceHeadVelocity);
+    var breaking = dampened + (velocity * interval * (1 + Math.abs(acceleration) / maxAcceleration) * convergenceHeadVelocity);
     return breaking;
   };
 
@@ -117,9 +118,9 @@ var PositionEngine = function(uuid, cb) {
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
       var correctHeightOnly = false;
-      body.head.position.x += velocity.x + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos);
-      body.head.position.y += velocity.y +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos;
-      body.head.position.z += velocity.z + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos);
+      body.head.position.x += (velocity.x + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos)) * delta;
+      body.head.position.y += (velocity.y +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos)  * delta;
+      body.head.position.z += (velocity.z + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos)) * delta;
 
       // body.left.position  = mixPos(body.left.position, bodyAbs.left.position, convergenceHands);
       // body.left.rotation  = mixRot(body.left.rotation, bodyAbs.left.rotation, convergenceHands);
