@@ -4,8 +4,8 @@ var _ = require('eakwell');
 var Receiver = require('./receiver.js');
 
 var PositionEngine = function(uuid, cb) {
-  var convergenceHeadPos = 0.2;
-  var convergenceHeadVelocity = 0.001;
+  var convergenceHeadPos = 0.005;
+  var convergenceHeadVelocity = 0.06;
   var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
 
@@ -42,24 +42,25 @@ var PositionEngine = function(uuid, cb) {
 
   var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
     // Convert from device space to world space
-    var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z);
+    var acceleration = new THREE.Vector3(-e.acceleration.y, e.acceleration.x, e.acceleration.z); // Landscape
+    // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
     acceleration.applyQuaternion(body.head.orientation);
     // Integrate acceleration over time to yield velocity
-    velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
-    velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
-    velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
+    velocity.x -= dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
+    velocity.y -= dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
+    velocity.z -= dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
     LOG("X: " + Math.round(velocity.x) + " Y: " + Math.round(velocity.y) + " Z: " + Math.round(velocity.z));
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval) {
     // Correct more aggressively the closer we get to maxVelocity
-    var maxVelocity = 30;
+    var maxVelocity = 50;
     var correctionFactor = Math.min(1, Math.abs(velocity / maxVelocity));
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
     var opposing = ((acceleration.x >= 0 && velocity < 0) || (acceleration.x < 0 && velocity >= 0));
     var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
     // Slowly converge towards zero to cancel remaining velocity when standing still
-    var breaking = dampened - (velocity * interval * convergenceHeadVelocity);
+    var breaking = dampened + (velocity * convergenceHeadVelocity);
     return breaking;
   };
 
@@ -115,7 +116,7 @@ var PositionEngine = function(uuid, cb) {
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
-      var correctHeightOnly = true;
+      var correctHeightOnly = false;
       body.head.position.x += velocity.x + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos);
       body.head.position.y += velocity.y +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos;
       body.head.position.z += velocity.z + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos);
