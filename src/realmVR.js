@@ -3,6 +3,7 @@ var _ = require('eakwell');
 var realmVR = {
   Tracker: require('./tracker.js'),
   PositionEngine: require('./positionEngine.js'),
+  SpaceManager: require('./spaceManager.js'),
 
   // Called from [server] to allow for web socket
   // communication between desktop and mobile devices
@@ -53,8 +54,8 @@ var realmVR = {
 
   RealmVRControls: function(object, uuid) {
     var RealmVRControls = require('./vrControls.js');
-    var engine = new realmVR.PositionEngine(uuid);
-    return new RealmVRControls(object, engine);
+    var manager = new realmVR.SpaceManager(uuid);
+    return new RealmVRControls(object, manager);
   }
 };
 

@@ -1,4 +1,4 @@
-var RealmVRControls = function(object, engine) {
+var RealmVRControls = function(object, manager) {
   var self = this;
 
   self.object = object;
@@ -16,7 +16,7 @@ var RealmVRControls = function(object, engine) {
 
   self.update = function(delta) {
     if(!self.enabled) return;
-    var body = engine.update(delta);
+    var body = manager.update(delta);
     self.object.quaternion.copy(body.head.orientation);
     self.object.position.set(body.head.position.x, body.head.position.y, body.head.position.z);
   };

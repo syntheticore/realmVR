@@ -3,22 +3,11 @@ var _ = require('eakwell');
 
 var Receiver = require('./receiver.js');
 
-var PositionEngine = function(uuid, cb) {
+var PositionEngine = function(uuid) {
   var convergenceHeadPos = 0.03;
   var convergenceHeadVelocity = 0.03;
   var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
-
-  var screenOrientation = window.orientation || 0;
-  var deviceOrientation = {};
-  var velocity = new THREE.Vector3(0, 0, 0);
-  
-  var bodyAbs = {
-    head: {
-      position: new THREE.Vector3(0, 0, 0),
-      orientation: new THREE.Quaternion()
-    }
-  };
 
   var body = {
     head: {
@@ -26,24 +15,63 @@ var PositionEngine = function(uuid, cb) {
       orientation: new THREE.Quaternion()
     }
   };
+  
+  var xPredictor = new Predictor();
+  var yPredictor = new Predictor();
+  var zPredictor = new Predictor();
 
   var receiver = new Receiver(uuid, function(b) {
-    bodyAbs = b;
+    xPredictor.feed(b.head.position.x);
+    yPredictor.feed(b.head.position.y);
+    zPredictor.feed(b.head.position.z);
   });
+
+  var getTrackedPose = function() {
+    return {
+      head: {
+        position: {
+          x: xPredictor.predict(),
+          y: yPredictor.predict(),
+          z: zPredictor.predict()
+        }
+      }
+    };
+  };
+
+  var screenOrientation = window.orientation || 0;
 
   var onScreenOrientation = _.on(window, 'orientationchange', function(e) {
     screenOrientation = window.orientation;
     lastOrientation = undefined;
   });
 
+  var alphaPredictor = new Predictor();
+  var betaPredictor = new Predictor();
+  var gammaPredictor = new Predictor();
+  var lastHeading = 0;
+
+  var getDeviceOrientation = function() {
+    return {
+      alpha: alphaPredictor.predict() || 0,
+      beta: betaPredictor.predict()   || 90,
+      gamma: gammaPredictor.predict() || 0,
+      heading: lastHeading
+    };
+  };
+
   var onDeviceOrientation = _.on(window, 'deviceorientation', function(e) {
-    deviceOrientation = e;
+    alphaPredictor.feed(e.alpha);
+    betaPredictor.feed(e.beta);
+    gammaPredictor.feed(e.gamma);
+    lastHeading = e.webkitCompassHeading;
   });
 
+  var velocity = new THREE.Vector3(0, 0, 0);
+
   var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
-    // Convert from device space to world space
-    var acceleration = new THREE.Vector3(-e.acceleration.y, e.acceleration.x, e.acceleration.z); // Landscape
     // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
+    var acceleration = new THREE.Vector3(-e.acceleration.y, e.acceleration.x, e.acceleration.z); // Landscape
+    // Convert from device space to world space
     acceleration.applyQuaternion(body.head.orientation);
     // Integrate acceleration over time to yield velocity
     velocity.x -= dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
@@ -66,12 +94,13 @@ var PositionEngine = function(uuid, cb) {
 
   var getAbsoluteHeading = function() {
     var headingAbs;
-    var beta  = deviceOrientation.beta  || 90;
+    var orientation = getDeviceOrientation();
+    var beta = orientation.beta;
     // Only in this interval can compass values be trusted
     //XXX if this should not work on android, compare gamma interval instead of beta
-    if(beta < 90 && beta > -90 && deviceOrientation.webkitCompassHeading != undefined) {
+    if(beta < 90 && beta > -90 && orientation.heading != undefined) {
       // Measure real heading with possible noise
-      headingAbs = deviceOrientation.webkitCompassHeading + (deviceOrientation.gamma > 0 ? beta : -beta);
+      headingAbs = orientation.heading + (orientation.gamma > 0 ? beta : -beta);
       if(headingAbs < 0) {
         headingAbs = headingAbs + 360;
       } else if(headingAbs > 360) {
@@ -85,12 +114,15 @@ var PositionEngine = function(uuid, cb) {
   var lastOrientation;
 
   return {
+    body: body,
+
     update: function(delta) {
+      // Collect potentially disorienting corrections so they can optionally be undone during rendering
+      var corrections = {};
+
       // Determine device orientation
-      var alpha = deviceOrientation.alpha || 0;
-      var beta  = deviceOrientation.beta  || 90;
-      var gamma = deviceOrientation.gamma || 0;
-      var orientation = toQuaternion(alpha, beta, gamma, screenOrientation);
+      var deviceOrientation = getDeviceOrientation();
+      var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
 
       // Determine rotation since last update
       if(lastOrientation == undefined) lastOrientation = orientation;
@@ -108,7 +140,8 @@ var PositionEngine = function(uuid, cb) {
       if(Math.abs(headingDiff) > 180) {
         headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
-      var headingCorrection = quaternionFromHeading(headingDiff * convergenceHeading);
+      corrections.heading = headingDiff * convergenceHeading;
+      var headingCorrection = quaternionFromHeading(corrections.heading);
 
       // Modify head orientation according to gyro rotation and compass correction
       headingCorrection.multiply(body.head.orientation).multiply(rotation);
@@ -116,12 +149,41 @@ var PositionEngine = function(uuid, cb) {
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
-      var correctHeightOnly = false;
-      body.head.position.x += velocity.x * delta / 30 + (correctHeightOnly ? 0 : (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos);
-      body.head.position.y += velocity.y * delta / 30 +                          (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos;
-      body.head.position.z += velocity.z * delta / 30 + (correctHeightOnly ? 0 : (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos)
+      var bodyAbs = getTrackedPose();
+      corrections.position = {
+        x: (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos,
+        y: (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
+        z: (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
+      };
+      body.head.position.x += velocity.x * delta / 30 + corrections.position.x;
+      body.head.position.y += velocity.y * delta / 30 + corrections.position.y;
+      body.head.position.z += velocity.z * delta / 30 + corrections.position.z;
 
-      return body;
+      return corrections;
+    }
+  };
+};
+
+var Predictor = function() {
+  var lastValue;
+  var lastNow;
+  var lastDiff;
+
+  this.feed = function(value) {
+    var now = performance.now();
+    if(lastValue != undefined) {
+      lastDiff = (value - lastValue) / (now - lastNow);
+    }
+    lastValue = value;
+    lastNow = now;
+  };
+
+  this.predict = function() {
+    if(lastDiff != undefined) {
+      var progress = performance.now() - lastNow;
+      return lastValue + (lastDiff * progress);
+    } else {
+      return lastValue;
     }
   };
 };
