@@ -2,6 +2,7 @@ var THREE = require('three');
 var _ = require('eakwell');
 
 var Receiver = require('./receiver.js');
+var utils = require('./utils.js');
 
 var PositionEngine = function(uuid) {
   var convergenceHeadPos = 0.03;
@@ -67,6 +68,7 @@ var PositionEngine = function(uuid) {
   });
 
   var velocity = new THREE.Vector3(0, 0, 0);
+  var shakiness = 0;
 
   var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
     // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
@@ -78,6 +80,11 @@ var PositionEngine = function(uuid) {
     velocity.y -= dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
     velocity.z -= dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
+    shakiness = shakiness * 0.5 + 
+                (
+                  (Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z)) / 3 +
+                  (Math.abs(e.rotationRate.alpha) + Math.abs(e.rotationRate.beta) + Math.abs(e.rotationRate.gamma)) / 3
+                ) * 0.5;
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval) {
@@ -118,7 +125,9 @@ var PositionEngine = function(uuid) {
 
     update: function(delta) {
       // Collect potentially disorienting corrections so they can optionally be undone during rendering
-      var corrections = {};
+      var corrections = {
+        shakiness: shakiness
+      };
 
       // Determine device orientation
       var deviceOrientation = getDeviceOrientation();
@@ -126,11 +135,11 @@ var PositionEngine = function(uuid) {
 
       // Determine rotation since last update
       if(lastOrientation == undefined) lastOrientation = orientation;
-      var rotation = quaternionDifference(lastOrientation, orientation);
+      var rotation = utils.quaternionDifference(lastOrientation, orientation);
       lastOrientation = orientation;
 
       // Heading as believed by gyros
-      var heading = headingFromQuaternion(body.head.orientation);
+      var heading = utils.headingFromQuaternion(body.head.orientation);
 
       // Actual compass heading
       var headingAbs = getAbsoluteHeading();
@@ -140,21 +149,21 @@ var PositionEngine = function(uuid) {
       if(Math.abs(headingDiff) > 180) {
         headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
-      corrections.heading = headingDiff * convergenceHeading;
-      var headingCorrection = quaternionFromHeading(corrections.heading);
+      corrections.headingValue = headingDiff * convergenceHeading;
+      corrections.heading = utils.quaternionFromHeading(corrections.headingValue);
 
       // Modify head orientation according to gyro rotation and compass correction
-      headingCorrection.multiply(body.head.orientation).multiply(rotation);
-      body.head.orientation = headingCorrection;
+      body.head.orientation = corrections.heading.clone().multiply(body.head.orientation).multiply(rotation);
+
       // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
       var bodyAbs = getTrackedPose();
-      corrections.position = {
-        x: (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos,
-        y: (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
-        z: (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
-      };
+      corrections.position = new THREE.Vector3(
+        (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos,
+        (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
+        (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
+      );
       body.head.position.x += velocity.x * delta / 30 + corrections.position.x;
       body.head.position.y += velocity.y * delta / 30 + corrections.position.y;
       body.head.position.z += velocity.z * delta / 30 + corrections.position.z;
@@ -205,29 +214,5 @@ var toQuaternion = (function() {
     return q;
   };
 })();
-
-// Determine cardinal direction from orientation
-var headingFromQuaternion = function(q) {
-  var toFront = new THREE.Vector3(1, 0, 0);
-  toFront.applyQuaternion(q);
-  toFront.setY(0);
-  toFront.normalize();
-  var heading = THREE.Math.radToDeg(toFront.angleTo(new THREE.Vector3(1, 0, 0)));
-  if((toFront.x > 0 && toFront.z > 0)  || (toFront.x < 0 && toFront.z > 0)) {
-    heading = 360 - heading;
-  }
-  return heading;
-};
-
-var quaternionFromHeading = function(heading) {
-  var q = new THREE.Quaternion();
-  var axis = new THREE.Vector3(1, 0, 0);
-  q.setFromAxisAngle(axis, THREE.Math.degToRad(heading));
-  return q;
-};
-
-var quaternionDifference = function(q1, q2) {
-  return q1.clone().inverse().multiply(q2.clone());
-};
 
 module.exports = PositionEngine;
