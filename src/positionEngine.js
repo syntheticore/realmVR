@@ -46,9 +46,9 @@ var PositionEngine = function(uuid) {
     lastOrientation = undefined;
   });
 
-  var alphaPredictor = new Predictor();
-  var betaPredictor = new Predictor();
-  var gammaPredictor = new Predictor();
+  var alphaPredictor = new Predictor(0, 360);
+  var betaPredictor = new Predictor(-180, 180);
+  var gammaPredictor = new Predictor(-90, 90);
   var lastHeading = 0;
 
   var getDeviceOrientation = function() {
@@ -118,8 +118,6 @@ var PositionEngine = function(uuid) {
     return headingAbs;
   };
 
-  var lastOrientation;
-
   return {
     body: body,
 
@@ -132,11 +130,6 @@ var PositionEngine = function(uuid) {
       // Determine device orientation
       var deviceOrientation = getDeviceOrientation();
       var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
-
-      // Determine rotation since last update
-      if(lastOrientation == undefined) lastOrientation = orientation;
-      var rotation = utils.quaternionDifference(lastOrientation, orientation);
-      lastOrientation = orientation;
 
       // Heading as believed by gyros
       var heading = utils.headingFromQuaternion(body.head.orientation);
@@ -153,9 +146,7 @@ var PositionEngine = function(uuid) {
       corrections.heading = utils.quaternionFromHeading(corrections.headingValue);
 
       // Modify head orientation according to gyro rotation and compass correction
-      body.head.orientation = corrections.heading.clone().multiply(body.head.orientation).multiply(rotation);
-
-      // LOG("REL: " + Math.round(heading) + " ABS: " + Math.round(headingAbs) + " CORRECTION: " + Math.round(headingDiff));
+      body.head.orientation = corrections.heading.clone().multiply(orientation);
 
       // Integrate velocity to yield head position, converge towards absolute position from tracker
       var bodyAbs = getTrackedPose();
@@ -164,16 +155,16 @@ var PositionEngine = function(uuid) {
         (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
         (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
       );
-      body.head.position.x += velocity.x * delta / 30 + corrections.position.x;
-      body.head.position.y += velocity.y * delta / 30 + corrections.position.y;
-      body.head.position.z += velocity.z * delta / 30 + corrections.position.z;
+      body.head.position.x += velocity.x * delta / 20 + corrections.position.x;
+      body.head.position.y += velocity.y * delta / 20 + corrections.position.y;
+      body.head.position.z += velocity.z * delta / 20 + corrections.position.z;
 
       return corrections;
     }
   };
 };
 
-var Predictor = function() {
+var Predictor = function(min, max) {
   var lastValue;
   var lastNow;
   var lastDiff;
@@ -188,9 +179,15 @@ var Predictor = function() {
   };
 
   this.predict = function() {
-    if(lastDiff != undefined) {
+    if(lastDiff != undefined && false) {
       var progress = performance.now() - lastNow;
-      return lastValue + (lastDiff * progress);
+      var value = lastValue + (lastDiff * progress);
+      if(max && value >= max) {
+        value = min + (value - max);
+      } else if(min && value <= min) {
+        value = max - (min - value);
+      }
+      return value;
     } else {
       return lastValue;
     }
