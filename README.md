@@ -8,13 +8,13 @@ Designed for use with Browserify
 
 ## Installation
 
-    npm install realmVR --save
+    npm install realm-vr --save
 
 ## Usage
 
 
   ```JavaScript
-  var realmVR = require('realmVR');
+  var realmVR = require('realm-vr');
   ```
 
 ## License
