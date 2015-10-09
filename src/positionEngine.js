@@ -82,7 +82,7 @@ var PositionEngine = function(uuid) {
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
     shakiness = shakiness * 0.5 + 
                 (
-                  (Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z)) / 3 +
+                  // (Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z)) / 3 +
                   (Math.abs(e.rotationRate.alpha) + Math.abs(e.rotationRate.beta) + Math.abs(e.rotationRate.gamma)) / 3
                 ) * 0.5;
   });

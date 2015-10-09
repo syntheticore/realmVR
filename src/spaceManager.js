@@ -12,8 +12,11 @@ var SpaceManager = function(uuid) {
     rotation: 0
   };
 
-  var bounds = [];
-  var maxBoundsDistance = 2;
+  var positionCorrectionStrength = 0.5;
+  var rotationCorrectionStrength = 0.5;
+
+  var boundsRadius = 100;
+  var maxBoundsDistance = 20;
 
   var getGameBody = function() {
     return {
@@ -25,28 +28,83 @@ var SpaceManager = function(uuid) {
   };
 
   var distanceToBounds = function(point) {
-    return 0;
+    return Math.max(boundsRadius - point.length());
   };
 
-  var createSpace = function() {
-
+  var makeSpace = function() {
+    // Measure angle with which the player approaches the wall
+    var wallVector = new THREE.Vector3();
+    wallVector.crossVectors(walkingDirection, pos);
+    var wallAngle = THREE.radToDegree(walkingDirection.angleTo(wallVector));
+    // Turn game world such that the real wall is behind
+    // the player when he turns to match the correction
+    world.rotation = wrapAround(world.rotation + 90 + wallAngle);
   };
+
+  var walkingDirection;
+  var lastWalkMarker;
+  var walkMarkerDistance = 10;
+
+  var outOfBounds = false;
+
+  var lastPos;
 
   return {
     // Calculate and return updated player position and orientation in game space
     update: function(delta) {
       var corrections = engine.update(delta);
-      return engine.body;
 
-      // Reverse corrections made to the body if they worsen our space problem
-      // Never reverse height correction
-      world.rotation += corrections.headingValue;
-      world.position.add(corrections.position.setY(0).multiplyScalar(corrections.shakiness));
+      var pos = body.head.position.clone().setY(0);
 
-      // Check for collision with real world bounds
-      if(distanceToBounds(engine.body.head.position) > maxBoundsDistance) {
-        createSpace();
+      // Check for imminent collision with real world bounds
+      var velocity = pos.clone().sub(lastPos).multiplyScalar(delta));
+      var futureWallDistance = distanceToBounds(pos.clone().add(velocity));
+      var wallDistance = distanceToBounds(pos);
+      var minWallDistance = Math.min(wallDistance, futureWallDistance);
+      if(!outOfBounds && minWallDistance < maxBoundsDistance) {
+        makeSpace();
+        outOfBounds = true;
+      } else if(outOfBounds && minWallDistance > maxBoundsDistance) {
+        outOfBounds = false;
       }
+
+      // Find walking direction
+      lastWalkMarker = lastWalkMarker || pos;
+      if(pos.distanceTo(lastWalkMarker) > walkMarkerDistance) {
+        walkingDirection = pos.clone().sub(lastWalkMarker);
+        lastWalkMarker = pos;
+      }
+
+      // Check much we are oriented away from the bounds center
+      var offTrackRot = Math.abs(walkingDirection.angleTo(pos) / Math.PI);
+
+      // Check how far away we are from the center relative to bounds size
+      var offTrackPos = pos.length() / boundsRadius;
+
+      // Check how much we are looking forward and down
+      var viewVector = new THREE.Vector3(0, 0, -1);
+      viewVector.applyQuaternion(engine.body.head.orientation);
+      var up = new THREE.Vector3(0, 1, 0);
+      var upLooking = 1 - Math.abs(viewVector.angleTo(up) / Math.PI);
+      var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
+
+      // Translate and rotate more
+      // - the further the player looks up
+      // - the faster the player is turning
+      // - the further the player is from the bounds center
+      // - the more the player is walking away from the bounds center
+      var correctionFactor = offTrackRot * offTrackPos * upLooking * corrections.shakiness;
+      var rotFactor = correctionFactor * rotationCorrectionStrength;
+      var posFactor = correctionFactor * positionCorrectionStrength;
+
+      // Move game world in direction from player to bounds center
+      world.position.sub(pos.clone().multiplyScalar(posFactor));
+      
+      // Rotate world a bit to discourage walking into bounds
+      world.rotation = wrapAround(world.rotation - walkingDirection.angleTo(pos) * rotFactor);
+
+      lastPos = pos;
+
       return getGameBody();
     },
 
@@ -55,6 +113,16 @@ var SpaceManager = function(uuid) {
 
     }
   };
+};
+
+var wrapAround = function(angle) {
+  if(angle >= 360) {
+    return angle - 360;
+  } else if(angle < 0) {
+    return 360 + angle;
+  } else {
+    return angle;
+  }
 };
 
 module.exports = SpaceManager;
