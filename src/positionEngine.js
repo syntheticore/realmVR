@@ -5,7 +5,7 @@ var Receiver = require('./receiver.js');
 var utils = require('./utils.js');
 
 var PositionEngine = function(uuid) {
-  var convergenceHeadPos = 0.03;
+  var convergenceHeadPos = 0.02;
   var convergenceHeadVelocity = 0.03;
   var convergenceHeading = 0.0005;
   var convergenceHands = 0.6;
@@ -142,7 +142,7 @@ var PositionEngine = function(uuid) {
       if(Math.abs(headingDiff) > 180) {
         headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
       }
-      corrections.headingValue = headingDiff * convergenceHeading;
+      corrections.headingValue = headingDiff * convergenceHeading * delta / 20;
       corrections.heading = utils.quaternionFromHeading(corrections.headingValue);
 
       // Modify head orientation according to gyro rotation and compass correction
@@ -155,9 +155,10 @@ var PositionEngine = function(uuid) {
         (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
         (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
       );
-      body.head.position.x += velocity.x * delta / 20 + corrections.position.x;
-      body.head.position.y += velocity.y * delta / 20 + corrections.position.y;
-      body.head.position.z += velocity.z * delta / 20 + corrections.position.z;
+      // LOG(delta / 20);
+      body.head.position.x += (velocity.x + corrections.position.x) * delta / 20;
+      body.head.position.y += (velocity.y + corrections.position.y) * delta / 20;
+      body.head.position.z += (velocity.z + corrections.position.z) * delta / 20;
 
       return corrections;
     }
