@@ -41,7 +41,7 @@ var SpaceManager = function(uuid) {
     world.rotation = wrapAround(world.rotation + 90 + wallAngle);
   };
 
-  var walkingDirection;
+  var walkingDirection = new THREE.Vector3(0, 0, -1);
   var lastWalkMarker;
   var walkMarkerDistance = 10;
 
@@ -53,11 +53,13 @@ var SpaceManager = function(uuid) {
     // Calculate and return updated player position and orientation in game space
     update: function(delta) {
       var corrections = engine.update(delta);
+      return getGameBody();
 
-      var pos = body.head.position.clone().setY(0);
+      var pos = engine.body.head.position.clone().setY(0);
 
       // Check for imminent collision with real world bounds
-      var velocity = pos.clone().sub(lastPos).multiplyScalar(delta));
+      lastPos = lastPos || pos;
+      var velocity = pos.clone().sub(lastPos).multiplyScalar(delta);
       var futureWallDistance = distanceToBounds(pos.clone().add(velocity));
       var wallDistance = distanceToBounds(pos);
       var minWallDistance = Math.min(wallDistance, futureWallDistance);
@@ -93,12 +95,13 @@ var SpaceManager = function(uuid) {
       // - the faster the player is turning
       // - the further the player is from the bounds center
       // - the more the player is walking away from the bounds center
+      // - the more the player moves sideways
       var correctionFactor = offTrackRot * offTrackPos * upLooking * corrections.shakiness;
       var rotFactor = correctionFactor * rotationCorrectionStrength;
       var posFactor = correctionFactor * positionCorrectionStrength;
 
       // Move game world in direction from player to bounds center
-      world.position.sub(pos.clone().multiplyScalar(posFactor));
+      world.position.sub(pos.clone().normalize().multiplyScalar(posFactor));
       
       // Rotate world a bit to discourage walking into bounds
       world.rotation = wrapAround(world.rotation - walkingDirection.angleTo(pos) * rotFactor);

@@ -72,13 +72,13 @@ var PositionEngine = function(uuid) {
 
   var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
     // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
-    var acceleration = new THREE.Vector3(-e.acceleration.y, e.acceleration.x, e.acceleration.z); // Landscape
+    var acceleration = new THREE.Vector3(e.acceleration.y, -e.acceleration.x, -e.acceleration.z); // Landscape
     // Convert from device space to world space
     acceleration.applyQuaternion(body.head.orientation);
     // Integrate acceleration over time to yield velocity
-    velocity.x -= dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
-    velocity.y -= dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
-    velocity.z -= dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
+    velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
+    velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
+    velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
     shakiness = shakiness * 0.5 + 
                 (
@@ -92,11 +92,11 @@ var PositionEngine = function(uuid) {
     // Correct more aggressively the closer we get to maxVelocity
     var correctionFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
-    var opposing = ((acceleration.x >= 0 && velocity < 0) || (acceleration.x < 0 && velocity >= 0));
+    var opposing = ((acceleration >= 0 && velocity < 0) || (acceleration < 0 && velocity >= 0));
     var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
     // Slowly converge towards zero to cancel remaining velocity when standing still
-    var breaking = dampened + (velocity * interval * 50 * (1 + Math.abs(acceleration)) * convergenceHeadVelocity);
-    return breaking;
+    var braking = dampened - (velocity * interval * 50 * (1 + Math.abs(acceleration)) * convergenceHeadVelocity);
+    return braking;
   };
 
   var getAbsoluteHeading = function() {
