@@ -4,7 +4,7 @@ var _ = require('eakwell');
 var Receiver = require('./receiver.js');
 var utils = require('./utils.js');
 
-var PositionEngine = function(uuid) {
+var PositionEngine = function(uuid, deviceHeadDistance) {
   var convergenceHeadPos = 0.02;
   var convergenceHeadVelocity = 0.03;
   var convergenceHeading = 0.0005;
@@ -32,7 +32,7 @@ var PositionEngine = function(uuid) {
       head: {
         position: {
           x: xPredictor.predict() || 0,
-          y: yPredictor.predict() || 0,
+          y: yPredictor.predict() || 20,
           z: zPredictor.predict() || 0
         }
       }
@@ -118,6 +118,8 @@ var PositionEngine = function(uuid) {
     return headingAbs;
   };
 
+  var devicePosition = new THREE.Vector3();
+
   return {
     body: body,
 
@@ -148,7 +150,7 @@ var PositionEngine = function(uuid) {
       // Modify head orientation according to gyro rotation and compass correction
       body.head.orientation = corrections.heading.clone().multiply(orientation);
 
-      // Integrate velocity to yield head position, converge towards absolute position from tracker
+      // Integrate velocity to yield device position, converge towards absolute position from tracker
       var bodyAbs = getTrackedPose();
       corrections.position = new THREE.Vector3(
         (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos,
@@ -156,9 +158,15 @@ var PositionEngine = function(uuid) {
         (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
       );
       // LOG(delta / 20);
-      body.head.position.x += (velocity.x + corrections.position.x) * delta / 20;
-      body.head.position.y += (velocity.y + corrections.position.y) * delta / 20;
-      body.head.position.z += (velocity.z + corrections.position.z) * delta / 20;
+
+      devicePosition.x += (velocity.x + corrections.position.x) * delta / 20;
+      devicePosition.y += (velocity.y + corrections.position.y) * delta / 20;
+      devicePosition.z += (velocity.z + corrections.position.z) * delta / 20;
+
+      var viewVector = new THREE.Vector3(0, 0, deviceHeadDistance);
+      viewVector.applyQuaternion(body.head.orientation);
+
+      body.head.position.copy(viewVector.add(devicePosition));
 
       return corrections;
     }

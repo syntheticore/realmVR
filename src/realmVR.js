@@ -53,9 +53,10 @@ var realmVR = {
   },
 
   RealmVRControls: function(object, uuid) {
+    var deviceHeadDistance = 8;
     var RealmVRControls = require('./vrControls.js');
-    var manager = new realmVR.SpaceManager(uuid);
-    return new RealmVRControls(object, manager);
+    var manager = new realmVR.SpaceManager(uuid, deviceHeadDistance);
+    return new RealmVRControls(object, manager, deviceHeadDistance);
   }
 };
 

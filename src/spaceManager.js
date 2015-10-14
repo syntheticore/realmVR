@@ -4,8 +4,8 @@ var _ = require('eakwell');
 var PositionEngine = require('./positionEngine.js');
 var utils = require('./utils.js');
 
-var SpaceManager = function(uuid) {
-  var engine = new PositionEngine(uuid);
+var SpaceManager = function(uuid, deviceHeadDistance) {
+  var engine = new PositionEngine(uuid, deviceHeadDistance);
 
   var world = {
     position: new THREE.Vector3(0, 0, 0),
@@ -15,7 +15,7 @@ var SpaceManager = function(uuid) {
   var positionCorrectionStrength = 0.5;
   var rotationCorrectionStrength = 0.5;
 
-  var boundsRadius = 100;
+  var boundsRadius = 200;
   var maxBoundsDistance = 20;
 
   var getGameBody = function() {
@@ -32,6 +32,7 @@ var SpaceManager = function(uuid) {
   };
 
   var makeSpace = function() {
+    return;
     // Measure angle with which the player approaches the wall
     var wallVector = new THREE.Vector3();
     wallVector.crossVectors(walkingDirection, pos);
@@ -53,7 +54,6 @@ var SpaceManager = function(uuid) {
     // Calculate and return updated player position and orientation in game space
     update: function(delta) {
       var corrections = engine.update(delta);
-      return getGameBody();
 
       var pos = engine.body.head.position.clone().setY(0);
 
@@ -89,6 +89,9 @@ var SpaceManager = function(uuid) {
       var up = new THREE.Vector3(0, 1, 0);
       var upLooking = 1 - Math.abs(viewVector.angleTo(up) / Math.PI);
       var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
+      
+      if(upLooking < 0.1) world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.2));
+      return getGameBody();
 
       // Translate and rotate more
       // - the further the player looks up

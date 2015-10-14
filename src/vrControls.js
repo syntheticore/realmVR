@@ -1,9 +1,7 @@
 var THREE = require('three');
 
-var RealmVRControls = function(object, manager) {
+var RealmVRControls = function(object, manager, deviceHeadDistance) {
   var self = this;
-
-  var deviceEyeDistance = 10;
 
   self.object = object;
   self.object.rotation.reorder('YXZ');
@@ -23,14 +21,22 @@ var RealmVRControls = function(object, manager) {
     var body = manager.update(delta);
     
     // Calculate view vector
-    var viewVector = new THREE.Vector3(0, 0, -deviceEyeDistance);
+    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance);
     viewVector.applyQuaternion(body.head.orientation);
+    
+    var upVector = new THREE.Vector3(0, 1, 0);
+    upVector.applyQuaternion(body.head.orientation);
 
     // Move camera forward to make players head the center of rotation
-    viewVector.add(body.head.position);
-    self.object.position.set(viewVector.x, viewVector.y, viewVector.z);
-    
+    var camPos = body.head.position.clone().add(viewVector);
+    self.object.position.set(camPos.x, camPos.y, camPos.z);
     self.object.quaternion.copy(body.head.orientation);
+
+    return {
+      position: body.head.position,
+      viewVector: viewVector.normalize(),
+      upVector: upVector
+    }
   };
 
   self.dispose = function() {
