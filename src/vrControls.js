@@ -28,8 +28,7 @@ var RealmVRControls = function(object, manager, deviceHeadDistance) {
     upVector.applyQuaternion(body.head.orientation);
 
     // Move camera forward to make players head the center of rotation
-    var camPos = body.head.position.clone().add(viewVector);
-    self.object.position.set(camPos.x, camPos.y, camPos.z);
+    self.object.position.copy(body.head.position).add(viewVector);
     self.object.quaternion.copy(body.head.orientation);
 
     return {

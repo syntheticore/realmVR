@@ -60,7 +60,7 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
       // Check for imminent collision with real world bounds
       lastPos = lastPos || pos;
       var velocity = pos.clone().sub(lastPos).multiplyScalar(delta);
-      var futureWallDistance = distanceToBounds(pos.clone().add(velocity));
+      var futureWallDistance = distanceToBounds(velocity.add(pos));
       var wallDistance = distanceToBounds(pos);
       var minWallDistance = Math.min(wallDistance, futureWallDistance);
       if(!outOfBounds && minWallDistance < maxBoundsDistance) {
@@ -90,7 +90,7 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
       var upLooking = 1 - Math.abs(viewVector.angleTo(up) / Math.PI);
       var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
       
-      if(upLooking < 0.1) world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.2));
+      if(upLooking < 0.15) world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.2));
       return getGameBody();
 
       // Translate and rotate more
