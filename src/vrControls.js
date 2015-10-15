@@ -21,7 +21,7 @@ var RealmVRControls = function(object, manager, deviceHeadDistance) {
     var body = manager.update(delta);
     
     // Calculate view vector
-    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance);
+    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance / 2);
     viewVector.applyQuaternion(body.head.orientation);
     
     var upVector = new THREE.Vector3(0, 1, 0);

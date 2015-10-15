@@ -31,9 +31,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     return {
       head: {
         position: {
-          x: xPredictor.predict() || 0,
-          y: yPredictor.predict() || 20,
-          z: zPredictor.predict() || 0
+          x: xPredictor.predict() || 85,
+          y: yPredictor.predict() || 40,
+          z: zPredictor.predict() || -10
         }
       }
     };
@@ -53,8 +53,8 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
 
   var getDeviceOrientation = function() {
     return {
-      alpha: alphaPredictor.predict() || 0,
-      beta: betaPredictor.predict()   || 90,
+      alpha: alphaPredictor.predict() || 90,
+      beta: betaPredictor.predict()   || 100,
       gamma: gammaPredictor.predict() || 0,
       heading: lastHeading
     };
