@@ -168,10 +168,16 @@ var ColorTracker = function(cb, width, height) {
     // return poses;
   };
 
+  var lastNow;
+
   // Track body and call back listeners
   var tick = function() {
     if(!self.running) return;
     requestAnimationFrame(tick);
+    var now = new Date().getTime();
+    var delta = now - (lastNow || now);
+    if(delta && delta < 1000 / 8) return;
+    lastNow = now;
     var imageData = source.getData();
     if(!imageData) return;
     var body = findBodyParts(imageData);

@@ -173,7 +173,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     if(headingDiff) lastHeadingDiff = headingDiff;
     headingDiff = lastHeadingDiff || 0;
     var drift = minimalRotation(initialHeadingDiff - headingDiff);
-    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading;
+    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading * 0;
     var headingDriftCorrection = utils.quaternionFromHeading(smoothDrift);
 
     self.body.head.orientation = headingOffsetCorrection.multiply(headingDriftCorrection).multiply(orientation);
