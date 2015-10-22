@@ -5,12 +5,14 @@ var Receiver = require('./receiver.js');
 var utils = require('./utils.js');
 
 var PositionEngine = function(uuid, deviceHeadDistance) {
+  var self = this;
+
   var convergenceHeadPos = 0.02;
   var convergenceHeadVelocity = 0.03;
-  var convergenceHeading = 0.0005;
+  var convergenceHeading = 0.01;
   var convergenceHands = 0.6;
 
-  var body = {
+  self.body = {
     head: {
       position: new THREE.Vector3(0, 0, 0),
       orientation: new THREE.Quaternion()
@@ -41,7 +43,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
 
   var screenOrientation = window.orientation || 0;
 
-  var onScreenOrientation = _.on(window, 'orientationchange', function(e) {
+  _.on(window, 'orientationchange', function(e) {
     screenOrientation = window.orientation;
     lastOrientation = undefined;
   });
@@ -60,7 +62,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     };
   };
 
-  var onDeviceOrientation = _.on(window, 'deviceorientation', function(e) {
+  _.on(window, 'deviceorientation', function(e) {
     alphaPredictor.feed(e.alpha);
     betaPredictor.feed(e.beta);
     gammaPredictor.feed(e.gamma);
@@ -70,11 +72,11 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var velocity = new THREE.Vector3(0, 0, 0);
   var shakiness = 0;
 
-  var onDeviceMotion = _.on(window, 'devicemotion', function(e) {
+  _.on(window, 'devicemotion', function(e) {
     // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
     var acceleration = new THREE.Vector3(e.acceleration.y, -e.acceleration.x, -e.acceleration.z); // Landscape
     // Convert from device space to world space
-    acceleration.applyQuaternion(body.head.orientation);
+    acceleration.applyQuaternion(self.body.head.orientation);
     // Integrate acceleration over time to yield velocity
     velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
     velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
@@ -118,58 +120,88 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     return headingAbs;
   };
 
-  var devicePosition = new THREE.Vector3();
-
-  return {
-    body: body,
-
-    update: function(delta) {
-      // Collect potentially disorienting corrections so they can optionally be undone during rendering
-      var corrections = {
-        shakiness: shakiness
-      };
-
-      // Determine device orientation
-      var deviceOrientation = getDeviceOrientation();
-      var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
-
-      // Heading as believed by gyros
-      var heading = utils.headingFromQuaternion(body.head.orientation);
-
-      // Actual compass heading
-      var headingAbs = getAbsoluteHeading();
-
-      // Calculate quaternion that corrects rotational drift
-      var headingDiff = headingAbs ? heading - headingAbs : 0;
-      if(Math.abs(headingDiff) > 180) {
-        headingDiff = (360 - Math.abs(headingDiff)) * (headingDiff > 0 ? -1 : 1);
-      }
-      corrections.headingValue = headingDiff * convergenceHeading * delta / 20;
-      corrections.heading = utils.quaternionFromHeading(corrections.headingValue);
-
-      // Modify head orientation according to gyro rotation and compass correction
-      body.head.orientation = corrections.heading.clone().multiply(orientation);
-
-      // Integrate velocity to yield device position, converge towards absolute position from tracker
-      var bodyAbs = getTrackedPose();
-      corrections.position = new THREE.Vector3(
-        (bodyAbs.head.position.x - body.head.position.x) * convergenceHeadPos,
-        (bodyAbs.head.position.y - body.head.position.y) * convergenceHeadPos,
-        (bodyAbs.head.position.z - body.head.position.z) * convergenceHeadPos
-      );
-      // LOG(delta / 20);
-
-      devicePosition.x += (velocity.x + corrections.position.x) * delta / 20;
-      devicePosition.y += (velocity.y + corrections.position.y) * delta / 20;
-      devicePosition.z += (velocity.z + corrections.position.z) * delta / 20;
-
-      var viewVector = new THREE.Vector3(0, 0, deviceHeadDistance);
-      viewVector.applyQuaternion(body.head.orientation);
-
-      body.head.position.copy(viewVector.add(devicePosition));
-
-      return corrections;
+  var minimalRotation = function(angle) {
+    if(angle >= 360) {
+      angle = angle - 360;
     }
+    if(angle < 0) {
+      angle = 360 - angle;
+    }
+    if(Math.abs(angle) > 180) {
+      return (360 - Math.abs(angle)) * (angle > 0 ? -1 : 1);
+    }
+    return angle;
+  }
+
+  var getHeadingDiff = function() {
+    var compass = getAbsoluteHeading();
+    if(compass) {
+      var diff = getDeviceOrientation().alpha - compass;
+      return minimalRotation(diff);
+    }
+  };
+
+  var devicePosition = new THREE.Vector3();
+  var initialHeadingDiff = 0;
+  var initialAlpha = 0;
+
+  var lastHeadingDiff = 0;
+  var smoothDrift = 0;
+
+  window.addEventListener('touchend', function() {
+    self.calibrate();
+  }, false);
+
+  // Call calibrate once while oriented towards camera
+  // to determine forward direction
+  self.calibrate = function() {
+    initialAlpha = getDeviceOrientation().alpha - 90;
+    // Also determine divergence of gyro from compass
+    initialHeadingDiff = getHeadingDiff();
+  };
+
+  self.update = function(delta) {
+    // Collect potentially disorienting corrections so they can optionally be undone during rendering
+    var corrections = {
+      shakiness: shakiness
+    };
+
+    // Determine device orientation
+    var deviceOrientation = getDeviceOrientation();
+    var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
+
+    // Correct heading according to calibration
+    var headingOffsetCorrection = utils.quaternionFromHeading(-initialAlpha);
+
+    // Correct accumulated heading drift using compass
+    var headingDiff = getHeadingDiff();
+    if(headingDiff) lastHeadingDiff = headingDiff;
+    headingDiff = lastHeadingDiff;
+    var drift = minimalRotation(initialHeadingDiff - headingDiff);
+    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading;
+    var headingDriftCorrection = utils.quaternionFromHeading(smoothDrift);
+
+    self.body.head.orientation = headingOffsetCorrection.multiply(headingDriftCorrection).multiply(orientation);
+
+    // LOG("headingDiff: " + headingDiff + " drift: " + drift + " smoothDrift: " + smoothDrift);
+
+    // Integrate velocity to yield device position, converge towards absolute position from tracker
+    var bodyAbs = getTrackedPose();
+    corrections.position = new THREE.Vector3(
+      (bodyAbs.head.position.x - self.body.head.position.x) * convergenceHeadPos,
+      (bodyAbs.head.position.y - self.body.head.position.y) * convergenceHeadPos,
+      (bodyAbs.head.position.z - self.body.head.position.z) * convergenceHeadPos
+    );
+    devicePosition.x += (velocity.x + corrections.position.x) * delta / 20;
+    devicePosition.y += (velocity.y + corrections.position.y) * delta / 20;
+    devicePosition.z += (velocity.z + corrections.position.z) * delta / 20;
+
+    // Derive head position from device position by following inverse view vector
+    var viewVector = new THREE.Vector3(0, 0, deviceHeadDistance);
+    viewVector.applyQuaternion(self.body.head.orientation);
+    self.body.head.position.copy(viewVector.add(devicePosition));
+
+    return corrections;
   };
 };
 

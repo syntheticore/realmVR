@@ -6,10 +6,11 @@ var ColorTracker = require('./colorTracker.js');
 // tracking data to connected mobile devices
 var Tracker = function(width, height) {
   var socket = io();
-  var uuid = _.uuid();
+  var uuid = 1; //_.uuid();
   // Track body through webcam
   var tracker = new ColorTracker(function(body) {
     // Broadcast coordinates to registered mobile devices
+    if(!body.head || !body.head.position) return;
     socket.emit('data', {
       uuid: uuid,
       body: body
@@ -25,6 +26,8 @@ var Tracker = function(width, height) {
 
     // Start broadcasting tracking data
     start: function() {
+      // Broadcast empty packet to start session
+      socket.emit('data', {uuid: uuid});
       return tracker.start();
     },
 

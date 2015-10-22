@@ -17,7 +17,7 @@ module.exports = {
 
   quaternionFromHeading: function(heading) {
     var q = new THREE.Quaternion();
-    var axis = new THREE.Vector3(1, 0, 0);
+    var axis = new THREE.Vector3(0, 1, 0);
     q.setFromAxisAngle(axis, THREE.Math.degToRad(heading));
     return q;
   },

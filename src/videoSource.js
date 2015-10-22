@@ -30,6 +30,7 @@ var VideoSource = function(width, height) {
 
   return {
     canvas: canvas,
+    context: context,
 
     play: function() {
       return init.then(function() {
