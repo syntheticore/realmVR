@@ -12,6 +12,11 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var convergenceHeading = 0.01;
   var convergenceHands = 0.6;
 
+  var useMagnetSwitch = false;
+  var magnetThreshold = 30;
+
+  var doCompassCorrection = false;
+
   self.body = {
     head: {
       position: new THREE.Vector3(0, 0, 0),
@@ -33,9 +38,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     return {
       head: {
         position: {
-          x: xPredictor.predict() || 0, //85,
+          x: xPredictor.predict() || 0,
           y: yPredictor.predict() || 40,
-          z: zPredictor.predict() || 80  //-10
+          z: zPredictor.predict() || 0
         }
       }
     };
@@ -102,23 +107,12 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
 
   var getAbsoluteHeading = function() {
-    // var headingAbs;
     var orientation = getDeviceOrientation();
     var beta = orientation.beta;
     // Only in this interval can compass values be trusted
-    //XXX if this should not work on android, compare gamma interval instead of beta
     if(beta < 90 && beta > -90 && orientation.heading != undefined) {
       return 360 - orientation.heading;
-      // // Measure real heading with possible noise
-      // headingAbs = orientation.heading + (orientation.gamma > 0 ? beta : -beta);
-      // if(headingAbs < 0) {
-      //   headingAbs = headingAbs + 360;
-      // } else if(headingAbs > 360) {
-      //   headingAbs = headingAbs - 360;
-      // }
-      // headingAbs = 360 - headingAbs;
     }
-    // return headingAbs;
   };
 
   var minimalRotation = function(angle) {
@@ -149,6 +143,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var lastHeadingDiff = 0;
   var smoothDrift = 0;
 
+  var lastMagnetometerValue;
+
+  // Calibrate on Cardboard 2.0 switch activation
   window.addEventListener('touchend', function() {
     self.calibrate();
   }, false);
@@ -166,7 +163,14 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     var deviceOrientation = getDeviceOrientation();
     var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
 
-    // Correct heading according to calibration
+    // Calibrate on Cardboard 1.0 switch activation
+    if(useMagnetSwitch && deviceOrientation.heading && !doCompassCorrection) {
+      var diff = Math.abs(deviceOrientation.heading - (lastMagnetometerValue || deviceOrientation.heading));
+      if(diff > magnetThreshold) self.calibrate();
+      lastMagnetometerValue = deviceOrientation.heading;
+    }
+
+    // Correct heading to match tracker space
     var headingOffsetCorrection = utils.quaternionFromHeading(-initialAlpha);
 
     // Correct accumulated heading drift using compass
@@ -174,7 +178,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     if(headingDiff) lastHeadingDiff = headingDiff;
     headingDiff = lastHeadingDiff || 0;
     var drift = minimalRotation(initialHeadingDiff - headingDiff);
-    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading;
+    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading * (doCompassCorrection ? 1 : 0);
     var headingDriftCorrection = utils.quaternionFromHeading(smoothDrift);
 
     self.body.head.orientation = headingOffsetCorrection.multiply(headingDriftCorrection).multiply(orientation);

@@ -8,8 +8,8 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
   var engine = new PositionEngine(uuid, deviceHeadDistance);
 
   var world = {
-    position: new THREE.Vector3(0, 0, 0),
-    rotation: 0
+    position: new THREE.Vector3(-85, 0, 10),
+    rotation: -90
   };
 
   var positionCorrectionStrength = 0.5;
