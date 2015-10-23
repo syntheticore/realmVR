@@ -19,10 +19,11 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
   var maxBoundsDistance = 20;
 
   var getGameBody = function() {
+    var worldRot = utils.quaternionFromHeading(-world.rotation);
     return {
       head: {
-        position: engine.body.head.position.clone().sub(world.position),
-        orientation: utils.quaternionFromHeading(-world.rotation).multiply(engine.body.head.orientation)
+        position: engine.body.head.position.clone().applyQuaternion(worldRot).sub(world.position),
+        orientation: worldRot.multiply(engine.body.head.orientation)
       }
     }
   };
