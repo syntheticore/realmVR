@@ -102,22 +102,23 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
 
   var getAbsoluteHeading = function() {
-    var headingAbs;
+    // var headingAbs;
     var orientation = getDeviceOrientation();
     var beta = orientation.beta;
     // Only in this interval can compass values be trusted
     //XXX if this should not work on android, compare gamma interval instead of beta
     if(beta < 90 && beta > -90 && orientation.heading != undefined) {
-      // Measure real heading with possible noise
-      headingAbs = orientation.heading + (orientation.gamma > 0 ? beta : -beta);
-      if(headingAbs < 0) {
-        headingAbs = headingAbs + 360;
-      } else if(headingAbs > 360) {
-        headingAbs = headingAbs - 360;
-      }
-      headingAbs = 360 - headingAbs;
+      return 360 - orientation.heading;
+      // // Measure real heading with possible noise
+      // headingAbs = orientation.heading + (orientation.gamma > 0 ? beta : -beta);
+      // if(headingAbs < 0) {
+      //   headingAbs = headingAbs + 360;
+      // } else if(headingAbs > 360) {
+      //   headingAbs = headingAbs - 360;
+      // }
+      // headingAbs = 360 - headingAbs;
     }
-    return headingAbs;
+    // return headingAbs;
   };
 
   var minimalRotation = function(angle) {
@@ -125,7 +126,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
       angle = angle - 360;
     }
     if(angle < 0) {
-      angle = 360 - angle;
+      angle = 360 + angle;
     }
     if(Math.abs(angle) > 180) {
       return (360 - Math.abs(angle)) * (angle > 0 ? -1 : 1);
@@ -173,7 +174,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     if(headingDiff) lastHeadingDiff = headingDiff;
     headingDiff = lastHeadingDiff || 0;
     var drift = minimalRotation(initialHeadingDiff - headingDiff);
-    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading * 0;
+    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading;
     var headingDriftCorrection = utils.quaternionFromHeading(smoothDrift);
 
     self.body.head.orientation = headingOffsetCorrection.multiply(headingDriftCorrection).multiply(orientation);
