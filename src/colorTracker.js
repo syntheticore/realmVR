@@ -160,6 +160,9 @@ var ColorTracker = function(cb, width, height) {
       return blob.color == colorCombos.ground[0];
     });
     if(groundMarkers.length == 2) {
+      // Zero camera configuration to receive raw values
+      camHeight = 0;
+      camRotation = 0;
       // Find ground markers in camera space
       var positions = _.map(groundMarkers, function(marker) {
         return getBlobPosition(marker);
