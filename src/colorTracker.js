@@ -36,7 +36,8 @@ var ColorTracker = function(cb, width, height) {
     colorCombos = {
       head: ['apple'],
       left: ['magenta', 'cyan'],
-      right: ['cardinal', 'cyan']
+      // right: ['cardinal', 'cyan'],
+      ground: ['cardinal']
     };
     var colors = _.unique(_.flatten(_.values(colorCombos)));
 
@@ -146,29 +147,64 @@ var ColorTracker = function(cb, width, height) {
     };
   };
 
+  var fovX = 70; // Degrees
+  var fovY = 60;
+  var radiusAtOneMeter = 15 / 640 * width;
+  var camHeight = 0.6;
+  var camRotation = 0; // Radians
+
+  var calibrate = function() {
+    var imageData = source.getData();
+    var blobs = detectBlobs(imageData);
+    var groundMarkers = _.select(blobs, function(blob) {
+      return blob.color == colorCombos.ground[0];
+    });
+    if(groundMarkers.length == 2) {
+      // Find ground markers in camera space
+      var positions = _.map(groundMarkers, function(marker) {
+        return getBlobPosition(marker);
+      });
+      // Find angle between the vector from one marker to the other and the ground
+      var firstIsGreater = positions[0].y > positions[1].y;
+      var higherPos = firstIsGreater ? positions[0] : positions[1];
+      var lowerPos  = firstIsGreater ? positions[1] : positions[0];
+      var groundLine = higherPos.sub(lowerPos);
+      var realGroundLine = groundLine.copy().setY(0);
+      // Set camera rotation
+      camRotation = groundLine.angleTo(realGroundLine);
+      // Estimate marker positions again to determine ground level
+      var positions = _.map(groundMarkers, function(marker) {
+        return getBlobPosition(marker);
+      });
+      // Set camera height
+      camHeight = -positions[0].y;
+    } else {
+      console.error("Could not find ground markers");
+    }
+  };
+
+  var getBlobPosition = function(blob) {
+    var depth = radiusAtOneMeter / blob.radius;
+    var angleX = -fovX * (blob.position.x / width - 0.5);
+    var angleY = fovY * (blob.position.y / height - 0.5);
+    var yAxis = new THREE.Vector3(0, 1, 0);
+    var rotY = (new THREE.Quaternion()).setFromAxisAngle(yAxis, THREE.Math.degToRad(angleX));
+    var xAxis = new THREE.Vector3(1, 0, 0);
+    var camRot = (new THREE.Quaternion()).setFromAxisAngle(xAxis, camRotation);
+    xAxis.applyQuaternion(rotY);
+    var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY));
+    var position = new THREE.Vector3(0, 0, depth);
+    position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(100);
+    position.setY(position.y + camHeight * 100);
+    return position;
+  };
+
   var detectHead = function(blobs) {
-    var radiusAtOneMeter = 15 / 640 * width;
-    var fovX = 70;
-    var fovY = 60;
-    var camHeight = 0.6;
-    var camRotation = 3;
     var headBlob = _.find(blobs, function(blob) {
       return blob.color == colorCombos.head[0];
     });
     if(headBlob) {
-      var depth = radiusAtOneMeter / headBlob.radius;
-      var angleX = -fovX * (headBlob.position.x / width - 0.5);
-      var angleY = fovY * (headBlob.position.y / height - 0.5);
-      var yAxis = new THREE.Vector3(0, 1, 0);
-      var rotY = (new THREE.Quaternion()).setFromAxisAngle(yAxis, THREE.Math.degToRad(angleX));
-      var xAxis = new THREE.Vector3(1, 0, 0);
-      var camRot = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(camRotation));
-      xAxis.applyQuaternion(rotY);
-      var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY));
-      var position = new THREE.Vector3(0, 0, depth);
-      position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(100);
-      position.setY(position.y + camHeight * 100);
-      return position;
+      return getBlobPosition(headBlob);
     }
   };
 
@@ -186,12 +222,6 @@ var ColorTracker = function(cb, width, height) {
     //   return marker && poseFromMarker(marker);
     // });
     // return poses;
-  };
-
-  var calibrate = function() {
-    var imageData = source.getData();
-    var blobs = detectBlobs(imageData);
-
   };
 
   var lastNow;
