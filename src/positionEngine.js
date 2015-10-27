@@ -2,7 +2,7 @@ var THREE = require('three');
 var _ = require('eakwell');
 
 var Receiver = require('./receiver.js');
-var utils = require('./utils.js');
+var Utils = require('./utils.js');
 
 var PositionEngine = function(uuid, deviceHeadDistance) {
   var self = this;
@@ -11,6 +11,8 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var convergenceHeadVelocity = 1.5;
   var convergenceHeading = 0.01;
   var convergenceHands = 0.6;
+
+  var maxVelocity = 50;
 
   var useMagnetSwitch = false;
   var magnetThreshold = 30;
@@ -24,6 +26,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     }
   };
   
+  // Receive and predict absolute positions from tracker
   var xPredictor = new Predictor();
   var yPredictor = new Predictor();
   var zPredictor = new Predictor();
@@ -46,17 +49,25 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     };
   };
 
+  // Update screen orientation
   var screenOrientation = window.orientation || 0;
 
   _.on(window, 'orientationchange', function(e) {
     screenOrientation = window.orientation;
-    lastOrientation = undefined;
   });
 
+  // Update and predict device orientation
   var alphaPredictor = new Predictor(0, 360);
   var betaPredictor = new Predictor(-180, 180);
   var gammaPredictor = new Predictor(-90, 90);
   var lastHeading = 0;
+
+  _.on(window, 'deviceorientation', function(e) {
+    alphaPredictor.feed(e.alpha);
+    betaPredictor.feed(e.beta);
+    gammaPredictor.feed(e.gamma);
+    lastHeading = e.webkitCompassHeading || (360 - e.alpha);
+  });
 
   var getDeviceOrientation = function() {
     return {
@@ -67,13 +78,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     };
   };
 
-  _.on(window, 'deviceorientation', function(e) {
-    alphaPredictor.feed(e.alpha);
-    betaPredictor.feed(e.beta);
-    gammaPredictor.feed(e.gamma);
-    lastHeading = e.webkitCompassHeading;
-  });
-
+  // Integrate device motion to yield velocity
   var velocity = new THREE.Vector3(0, 0, 0);
   var shakiness = 0;
 
@@ -95,7 +100,6 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval) {
-    var maxVelocity = 50;
     // Correct more aggressively the closer we get to maxVelocity
     var correctionFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
@@ -106,20 +110,22 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     return braking;
   };
 
+  // Compass heading
   var getAbsoluteHeading = function() {
     var orientation = getDeviceOrientation();
     var beta = orientation.beta;
     // Only in this interval can compass values be trusted
-    if(beta < 90 && beta > -90 && orientation.heading != undefined) {
+    if(beta < 90 && beta > -90) {
       return 360 - orientation.heading;
     }
   };
 
+  // Minimal rotation in any direction to yield the
+  // same result as rotating the given angle
   var minimalRotation = function(angle) {
     if(angle >= 360) {
       angle = angle - 360;
-    }
-    if(angle < 0) {
+    } else if(angle < 0) {
       angle = 360 + angle;
     }
     if(Math.abs(angle) > 180) {
@@ -128,6 +134,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     return angle;
   }
 
+  // Offset from gyro to compass
   var getHeadingDiff = function() {
     var compass = getAbsoluteHeading();
     if(compass) {
@@ -138,7 +145,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
 
   var devicePosition = new THREE.Vector3();
   var initialHeadingDiff = 0;
-  var initialAlpha = 0;
+  var headingOffsetCorrection = Utils.quaternionFromHeading(0);
 
   var lastHeadingDiff = 0;
   var smoothDrift = 0;
@@ -151,10 +158,11 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   }, false);
 
   // Call calibrate once while oriented towards camera
-  // to determine forward direction
   self.calibrate = function() {
-    initialAlpha = getDeviceOrientation().alpha - 90;
-    // Also determine divergence of gyro from compass
+    // Determine forward direction
+    var initialAlpha = getDeviceOrientation().alpha - 90;
+    headingOffsetCorrection = Utils.quaternionFromHeading(-initialAlpha);
+    // Determine divergence of gyro from compass
     initialHeadingDiff = getHeadingDiff() || 0;
   };
 
@@ -170,18 +178,16 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
       lastMagnetometerValue = deviceOrientation.heading;
     }
 
-    // Correct heading to match tracker space
-    var headingOffsetCorrection = utils.quaternionFromHeading(-initialAlpha);
-
     // Correct accumulated heading drift using compass
     var headingDiff = getHeadingDiff();
     if(headingDiff) lastHeadingDiff = headingDiff;
-    headingDiff = lastHeadingDiff || 0;
+    headingDiff = lastHeadingDiff;
     var drift = minimalRotation(initialHeadingDiff - headingDiff);
     smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading * (doCompassCorrection ? 1 : 0);
-    var headingDriftCorrection = utils.quaternionFromHeading(smoothDrift);
+    var headingDriftCorrection = Utils.quaternionFromHeading(smoothDrift);
 
-    self.body.head.orientation = headingOffsetCorrection.multiply(headingDriftCorrection).multiply(orientation);
+    // Correct heading to match tracker space
+    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(orientation);
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
@@ -200,7 +206,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     // Derive head position from device position by following inverse view vector
     var viewVector = new THREE.Vector3(0, 0, deviceHeadDistance);
     viewVector.applyQuaternion(self.body.head.orientation);
-    self.body.head.position.copy(viewVector.add(devicePosition));
+    self.body.head.position.copy(devicePosition).add(viewVector);
 
     // Collect potentially disorienting corrections so they can optionally be undone during rendering
     var corrections = {

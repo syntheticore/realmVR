@@ -9,24 +9,39 @@ var ColorTracker = function(cb, width, height) {
   height = height || 480;
 
   var source = new VideoSource(width, height);
+  var tracker;
+  var colorCombos;
 
-  // Configure color detector
-  var colorCombos = {
-    head: ['cardinal']//,
-    // left: ['magenta', 'cyan'],//, 'green'],
-    // right: ['magenta', 'cyan']//, 'yellow']
+  // Register a named color with the tracker
+  // Colors that differ less than the given thresholds
+  // in HSL color space are considered for tracking
+  var registerColor = function(name, color, dh, ds, dl) {
+    var hsl = color.getHSL();
+    var pixelColor = new THREE.Color();
+    tracking.ColorTracker.registerColor(name, function(r, g, b) {
+      pixelColor.setRGB(r / 255, g / 255, b / 255);
+      var hslPixel = pixelColor.getHSL();
+      return Math.abs(hslPixel.h - hsl.h) < dh &&
+             Math.abs(hslPixel.s - hsl.s) < ds &&
+             Math.abs(hslPixel.l - hsl.l) < dl;
+    });
   };
-  var colors = _.unique(_.flatten(_.values(colorCombos)));
 
-  var hslCardinal = (new THREE.Color(102 / 255, 48 / 255, 79 / 255)).getHSL();
-  var hslApple = (new THREE.Color(137 / 255, 193 / 255, 114 / 255)).getHSL();
-  tracking.ColorTracker.registerColor('cardinal', function(r, g, b) {
-    var color = new THREE.Color(r / 255, g / 255, b / 255);
-    var hslPixel = color.getHSL();
-    // return hsl.h > 0.75 && hsl.h < 1.0 && hsl.s > 0.3;
-    return Math.abs(hslPixel.h - hslApple.h) < 0.1 && Math.abs(hslPixel.s - hslApple.s) < 0.3 && Math.abs(hslPixel.l - hslApple.l) < 0.3;
-  });
-  var tracker = new tracking.ColorTracker(colors);
+  var configureTracker = function() {
+    // Make custom colors known to tracker
+    registerColor('apple',    new THREE.Color(137 / 255, 193 / 255, 114 / 255), 0.1, 0.3, 0.3);
+    registerColor('cardinal', new THREE.Color(102 / 255, 48  / 255, 79  / 255), 0.1, 0.3, 0.3);
+
+    // Define combinations of color that represent a single entity
+    colorCombos = {
+      head: ['apple'],
+      left: ['magenta', 'cyan'],
+      right: ['cardinal', 'cyan']
+    };
+    var colors = _.unique(_.flatten(_.values(colorCombos)));
+
+    tracker = new tracking.ColorTracker(colors);
+  };
 
   // Return all blobs that match any of the used colors
   var detectBlobs = function(imageData) {
@@ -47,16 +62,21 @@ var ColorTracker = function(cb, width, height) {
     });
     // Emit track event
     tracker.track(imageData.data, width, height);
+    // Draw rectangles back onto canvas
+    drawBlobs(blobs, source.context);
+    return blobs;
+  };
+
+  var drawBlobs = function(blobs, context) {
     // source.context.clearRect(0, 0, source.canvas.width, source.canvas.height);
     _.each(blobs, function(blob) {
-      source.context.strokeStyle = blob.color;
-      source.context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
-      source.context.font = '11px Helvetica';
-      source.context.fillStyle = "#fff";
-      source.context.fillText('x: ' + blob.position.x + 'px', blob.position.x, blob.position.y + 11);
-      source.context.fillText('y: ' + blob.position.y + 'px', blob.position.x, blob.position.y + 22);
+      context.strokeStyle = blob.color;
+      context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
+      context.font = '11px Helvetica';
+      context.fillStyle = "#fff";
+      context.fillText('x: ' + blob.position.x + 'px', blob.position.x, blob.position.y + 11);
+      context.fillText('y: ' + blob.position.y + 'px', blob.position.x, blob.position.y + 22);
     });
-    return blobs;
   };
 
   // Combine adjacent blobs to form groups
@@ -168,21 +188,31 @@ var ColorTracker = function(cb, width, height) {
     // return poses;
   };
 
+  var calibrate = function() {
+    var imageData = source.getData();
+    var blobs = detectBlobs(imageData);
+
+  };
+
   var lastNow;
 
-  // Track body and call back listeners
   var tick = function() {
     if(!self.running) return;
+    // Rate limit detector to give garbage collector some time between frames
     requestAnimationFrame(tick);
     var now = new Date().getTime();
     var delta = now - (lastNow || now);
     if(delta && delta < 1000 / 8) return;
     lastNow = now;
+    // Get image pixels
     var imageData = source.getData();
     if(!imageData) return;
+    // Detect head and hand positions and orientations
     var body = findBodyParts(imageData);
     cb(body);
   };
+
+  configureTracker();
 
   var self = {
     running: false,

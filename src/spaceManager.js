@@ -91,7 +91,10 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
       var upLooking = 1 - Math.abs(viewVector.angleTo(up) / Math.PI);
       var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
       
-      if(upLooking < 0.15) world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.5));
+      if(upLooking < 0.1) {
+        var worldRot = utils.quaternionFromHeading(-world.rotation);
+        world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.5).applyQuaternion(worldRot));
+      }
       return getGameBody();
 
       // Translate and rotate more
