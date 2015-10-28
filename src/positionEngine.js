@@ -10,7 +10,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var convergenceHeadPos = 0.02;
   var convergenceHeadVelocity = 1.5;
   var convergenceHeading = 0.01;
-  var convergenceHands = 0.6;
+  var convergenceHands = 0.1;
 
   var maxVelocity = 50;
 
@@ -20,6 +20,14 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var doCompassCorrection = false;
 
   self.body = {
+    left: {
+      position: new THREE.Vector3(0, 0, 0),
+      active: false
+    },
+    right: {
+      position: new THREE.Vector3(0, 0, 0),
+      active: false
+    },
     head: {
       position: new THREE.Vector3(0, 0, 0),
       orientation: new THREE.Quaternion()
@@ -27,24 +35,37 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
   
   // Receive and predict absolute positions from tracker
-  var xPredictor = new Predictor();
-  var yPredictor = new Predictor();
-  var zPredictor = new Predictor();
+  var leftPredictor = new VectorPredictor();
+  var rightPredictor = new VectorPredictor();
+  var headPredictor = new VectorPredictor();
 
-  var receiver = new Receiver(uuid, function(b) {
-    xPredictor.feed(b.head.position.x);
-    yPredictor.feed(b.head.position.y);
-    zPredictor.feed(b.head.position.z);
+  leftPredictor.feed(new THREE.Vector3(0, 40, 0));
+  headPredictor.feed(new THREE.Vector3(0, 40, 0));
+
+  var leftActive = false;
+  var rightActive = false;
+
+  var receiver = new Receiver(uuid, function(body) {
+    leftPredictor.feed(body.left.position);
+    rightPredictor.feed(body.right.position);
+    headPredictor.feed(body.head.position);
+
+    leftActive = body.left.active;
+    rightActive = body.right.active;
   });
 
   var getTrackedPose = function() {
     return {
+      left: {
+        position: leftPredictor.predict().add(getViewVector()),
+        active: leftActive
+      },
+      right: {
+        position: rightPredictor.predict().add(getViewVector()),
+        active: rightActive
+      },
       head: {
-        position: {
-          x: xPredictor.predict() || 0,
-          y: yPredictor.predict() || 40,
-          z: zPredictor.predict() || 0
-        }
+        position: headPredictor.predict()
       }
     };
   };
@@ -57,9 +78,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   });
 
   // Update and predict device orientation
-  var alphaPredictor = new Predictor(0, 360);
-  var betaPredictor = new Predictor(-180, 180);
-  var gammaPredictor = new Predictor(-90, 90);
+  var alphaPredictor = new Predictor(0,    360, true);
+  var betaPredictor  = new Predictor(-180, 180, true);
+  var gammaPredictor = new Predictor(-90,  90,  true);
   var lastHeading = 0;
 
   _.on(window, 'deviceorientation', function(e) {
@@ -143,6 +164,12 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     }
   };
 
+  var getViewVector = function() {
+    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance);
+    viewVector.applyQuaternion(self.body.head.orientation);
+    return viewVector;
+  };
+
   var devicePosition = new THREE.Vector3();
   var initialHeadingDiff = 0;
   var headingOffsetCorrection = Utils.quaternionFromHeading(0);
@@ -204,9 +231,16 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     devicePosition.z += velocity.z * delta / 10 + positionCorrection.z;
 
     // Derive head position from device position by following inverse view vector
-    var viewVector = new THREE.Vector3(0, 0, deviceHeadDistance);
-    viewVector.applyQuaternion(self.body.head.orientation);
-    self.body.head.position.copy(devicePosition).add(viewVector);
+    var viewVector = getViewVector();
+    self.body.head.position.copy(devicePosition).sub(viewVector);
+
+    // Converge hand positions to position from tracker
+    self.body.left.position.lerp(bodyAbs.left.position, convergenceHands);
+    self.body.right.position.lerp(bodyAbs.right.position, convergenceHands);
+
+    // Update hand triggers
+    self.body.left.active = bodyAbs.left.active;
+    self.body.right.active = bodyAbs.right.active;
 
     // Collect potentially disorienting corrections so they can optionally be undone during rendering
     var corrections = {
@@ -219,7 +253,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
 };
 
-var Predictor = function(min, max) {
+var Predictor = function(min, max, disable) {
   var lastValue;
   var lastNow;
   var lastDiff;
@@ -234,7 +268,7 @@ var Predictor = function(min, max) {
   };
 
   this.predict = function() {
-    if(lastDiff != undefined && false) {
+    if(lastDiff != undefined && !disable) {
       var progress = performance.now() - lastNow;
       var value = lastValue + (lastDiff * progress);
       if(max && value >= max) {
@@ -246,6 +280,22 @@ var Predictor = function(min, max) {
     } else {
       return lastValue;
     }
+  };
+};
+
+var VectorPredictor = function() {
+  var xPredictor = new Predictor();
+  var yPredictor = new Predictor();
+  var zPredictor = new Predictor();
+
+  this.feed = function(vector) {
+    xPredictor.feed(vector.x);
+    yPredictor.feed(vector.y);
+    zPredictor.feed(vector.z);
+  };
+
+  this.predict = function() {
+    return new THREE.Vector3(xPredictor.predict() || 0, yPredictor.predict() || 0, zPredictor.predict() || 0);
   };
 };
 

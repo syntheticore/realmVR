@@ -9,40 +9,54 @@ var ColorTracker = function(cb, width, height) {
   height = height || 480;
 
   var source = new VideoSource(width, height);
-  var tracker;
-  var colorCombos;
 
   // Register a named color with the tracker
   // Colors that differ less than the given thresholds
   // in HSL color space are considered for tracking
-  var registerColor = function(name, color, dh, ds, dl) {
+  var registerColor = function(name, color, deviation) {
     var hsl = color.getHSL();
     var pixelColor = new THREE.Color();
     tracking.ColorTracker.registerColor(name, function(r, g, b) {
       pixelColor.setRGB(r / 255, g / 255, b / 255);
       var hslPixel = pixelColor.getHSL();
-      return Math.abs(hslPixel.h - hsl.h) < dh &&
-             Math.abs(hslPixel.s - hsl.s) < ds &&
-             Math.abs(hslPixel.l - hsl.l) < dl;
+      return Math.abs(hslPixel.h - hsl.h) < deviation.dh &&
+             Math.abs(hslPixel.s - hsl.s) < deviation.ds &&
+             Math.abs(hslPixel.l - hsl.l) < deviation.dl;
     });
   };
 
-  var configureTracker = function() {
-    // Make custom colors known to tracker
-    registerColor('apple',    new THREE.Color(137 / 255, 193 / 255, 114 / 255), 0.1, 0.3, 0.3);
-    registerColor('cardinal', new THREE.Color(102 / 255, 48  / 255, 79  / 255), 0.1, 0.3, 0.3);
+  var deviations = {
+    apple: {dh: 0.1, ds: 0.3, dl: 0.3},
+    cardinal: {dh: 0.1, ds: 0.3, dl: 0.3},
+    magenta: {dh: 0.1, ds: 0.3, dl: 0.3},
+    cyan: {dh: 0.1, ds: 0.3, dl: 0.3}
+  };
 
+  // Make custom colors known to tracker
+  var registerColors = function() {
+    registerColor('apple',    new THREE.Color(137 / 255, 193 / 255, 114 / 255), deviations.apple);
+    registerColor('cardinal', new THREE.Color(102 / 255, 48  / 255, 79  / 255), deviations.cardinal);
+  };
+
+  registerColors();
+
+  var colorCombos = {
+    head: ['apple'],
+    left: ['magenta', 'cyan'],
+    // right: ['cardinal', 'cyan'],
+    ground: ['cardinal']
+  };
+
+  var colors;
+  var tracker;
+
+  var configureTracker = function(combos) {
     // Define combinations of color that represent a single entity
-    colorCombos = {
-      head: ['apple'],
-      left: ['magenta', 'cyan'],
-      // right: ['cardinal', 'cyan'],
-      ground: ['cardinal']
-    };
-    var colors = _.unique(_.flatten(_.values(colorCombos)));
-
+    colors = _.unique(_.flatten(_.values(combos)));
     tracker = new tracking.ColorTracker(colors);
   };
+
+  configureTracker(colorCombos);
 
   // Return all blobs that match any of the used colors
   var detectBlobs = function(imageData) {
@@ -147,13 +161,17 @@ var ColorTracker = function(cb, width, height) {
     };
   };
 
+  var calibrateColors = function() {
+    // Calibrate each color separately
+  };
+
   var fovX = 70; // Degrees
   var fovY = 60;
   var radiusAtOneMeter = 15 / 640 * width;
   var camHeight = 0.6;
   var camRotation = 0; // Radians
 
-  var calibrate = function() {
+  var calibrateSpace = function() {
     var imageData = source.getData();
     var blobs = detectBlobs(imageData);
     var groundMarkers = _.select(blobs, function(blob) {
@@ -186,6 +204,11 @@ var ColorTracker = function(cb, width, height) {
     }
   };
 
+  var calibrate = function() {
+    calibrateColors();
+    calibrateSpace();
+  };
+
   var getBlobPosition = function(blob) {
     var depth = radiusAtOneMeter / blob.radius;
     var angleX = -fovX * (blob.position.x / width - 0.5);
@@ -213,12 +236,25 @@ var ColorTracker = function(cb, width, height) {
 
   // Detect the real world positions of
   // all body parts using the given image
-  var findBodyParts = function(imageData) {
+  var getBodyParts = function(imageData) {
     var blobs = detectBlobs(imageData);
-    var markers = detectMarkers(blobs);
     var head = detectHead(blobs);
+    // var markers = detectMarkers(blobs);
 
-    markers.head = {position: head};
+    var markers = {
+      head: {
+        position: head
+      },
+      left: {
+        position: head,
+        active: false
+      },
+      right: {
+        position: head,
+        active: false
+      }
+    };
+
     return markers;
 
     // var poses = _.map(markers, function(marker) {
@@ -241,11 +277,9 @@ var ColorTracker = function(cb, width, height) {
     var imageData = source.getData();
     if(!imageData) return;
     // Detect head and hand positions and orientations
-    var body = findBodyParts(imageData);
+    var body = getBodyParts(imageData);
     cb(body);
   };
-
-  configureTracker();
 
   var self = {
     running: false,

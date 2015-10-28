@@ -2,11 +2,15 @@ var THREE = require('three');
 
 var RealmVRControls = function(object, manager, deviceHeadDistance) {
   var self = this;
+  _.eventHandling(self);
 
   self.object = object;
   self.object.rotation.reorder('YXZ');
 
   self.enabled = true;
+
+  var lastLeftActive = false;
+  var lastRightActive = false;
 
   self.connect = function() {
     self.enabled = true;
@@ -30,6 +34,20 @@ var RealmVRControls = function(object, manager, deviceHeadDistance) {
     // Move camera forward to make players head the center of rotation
     self.object.position.copy(body.head.position).add(viewVector);
     self.object.quaternion.copy(body.head.orientation);
+
+    // Watch hand triggers for changes
+    if(body.left.active && !lastLeftActive) {
+      self.emit('triggerLeft');
+    } else if(!body.left.active && lastLeftActive) {
+      self.emit('triggerEndLeft');
+    }
+    if(body.right.active && !lastRightActive) {
+      self.emit('triggerRight');
+    } else if(!body.right.active && lastRightActive) {
+      self.emit('triggerEndRight');
+    }
+    lastLeftActive = body.left.active;
+    lastRightActive = body.right.active;
 
     return {
       position: body.head.position,
