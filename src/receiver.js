@@ -10,7 +10,6 @@ var Receiver = function(uuid, cb) {
   
   // Feed engine with real world positions
   socket.on('data', function(body) {
-    console.log(body);
     if(body) cb(body);
   });
 

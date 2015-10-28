@@ -7,7 +7,7 @@ var Utils = require('./utils.js');
 var PositionEngine = function(uuid, deviceHeadDistance) {
   var self = this;
 
-  var convergenceHeadPos = 0.02;
+  var convergenceHeadPos = 0.002;
   var convergenceHeadVelocity = 1.5;
   var convergenceHeading = 0.01;
   var convergenceHands = 0.1;
@@ -35,9 +35,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
   
   // Receive and predict absolute positions from tracker
-  var leftPredictor = new VectorPredictor();
-  var rightPredictor = new VectorPredictor();
-  var headPredictor = new VectorPredictor();
+  var leftPredictor = new VectorPredictor(null, null, true);
+  var rightPredictor = new VectorPredictor(null, null, true);
+  var headPredictor = new VectorPredictor(null, null, true);
 
   leftPredictor.feed(new THREE.Vector3(15, 30, 15));
   rightPredictor.feed(new THREE.Vector3(-15, 30, 15));
@@ -224,12 +224,12 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
       (bodyAbs.head.position.y - self.body.head.position.y),
       (bodyAbs.head.position.z - self.body.head.position.z)
     );
-    positionCorrection.multiplyScalar(convergenceHeadPos * delta / 10);
+    positionCorrection.multiplyScalar(convergenceHeadPos * delta);
 
     // Integrate velocity to yield device position
-    devicePosition.x += velocity.x * delta / 10 + positionCorrection.x;
-    devicePosition.y += velocity.y * delta / 10 + positionCorrection.y;
-    devicePosition.z += velocity.z * delta / 10 + positionCorrection.z;
+    devicePosition.x += velocity.x * delta / 5 + positionCorrection.x;
+    devicePosition.y += velocity.y * delta / 5 + positionCorrection.y;
+    devicePosition.z += velocity.z * delta / 5 + positionCorrection.z;
 
     // Derive head position from device position by following inverse view vector
     var viewVector = getViewVector();
@@ -272,9 +272,9 @@ var Predictor = function(min, max, disable) {
     if(lastDiff != undefined && !disable) {
       var progress = performance.now() - lastNow;
       var value = lastValue + (lastDiff * progress);
-      if(max && value >= max) {
+      if(_.hasValue(max) && value >= max) {
         value = min + (value - max);
-      } else if(min && value <= min) {
+      } else if(_.hasValue(min) && value <= min) {
         value = max - (min - value);
       }
       return value;

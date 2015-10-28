@@ -8,6 +8,8 @@ var ColorTracker = function(cb, width, height) {
   width = width || 640;
   height = height || 480;
 
+  var tracksPerSecond = 8;
+
   var source = new VideoSource(width, height);
 
   // Register a named color with the tracker
@@ -27,22 +29,28 @@ var ColorTracker = function(cb, width, height) {
 
   var deviations = {
     apple: {dh: 0.1, ds: 0.3, dl: 0.3},
-    cardinal: {dh: 0.1, ds: 0.3, dl: 0.3},
+    cardinal: {dh: 0.1, ds: 0.15, dl: 0.15},
     magenta: {dh: 0.1, ds: 0.3, dl: 0.3},
     cyan: {dh: 0.1, ds: 0.3, dl: 0.3}
   };
 
+  var colorDefinitions = {
+    apple: new THREE.Color(137 / 255, 193 / 255, 114 / 255),
+    cardinal: new THREE.Color(115 / 255, 38  / 255, 93  / 255)
+  };
+
   // Make custom colors known to tracker
   var registerColors = function() {
-    registerColor('apple',    new THREE.Color(137 / 255, 193 / 255, 114 / 255), deviations.apple);
-    registerColor('cardinal', new THREE.Color(102 / 255, 48  / 255, 79  / 255), deviations.cardinal);
+    _.each(colorDefinitions, function(color, name) {
+      registerColor(name, color, deviations[name]);
+    });
   };
 
   registerColors();
 
   var colorCombos = {
     head: ['apple'],
-    left: ['magenta', 'cyan'],
+    // left: ['magenta', 'cyan'],
     // right: ['cardinal', 'cyan'],
     ground: ['cardinal']
   };
@@ -89,8 +97,9 @@ var ColorTracker = function(cb, width, height) {
       context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
       context.font = '11px Helvetica';
       context.fillStyle = "#fff";
-      context.fillText('x: ' + blob.position.x + 'px', blob.position.x, blob.position.y + 11);
-      context.fillText('y: ' + blob.position.y + 'px', blob.position.x, blob.position.y + 22);
+      context.fillText('x: ' + blob.position.x + 'px', blob.position.x, blob.position.y + 22);
+      context.fillText('y: ' + blob.position.y + 'px', blob.position.x, blob.position.y + 33);
+      context.fillText(blob.color, blob.position.x, blob.position.y + 44);
     });
   };
 
@@ -164,35 +173,71 @@ var ColorTracker = function(cb, width, height) {
   var calibrateColors = function() {
     var imageData = source.getData();
     // Calibrate each color separately
-    _.each(colors, function(color) {
+    _.each(colorDefinitions, function(color, name) {
       // Return number of markers found for this color with given calibration
       var matchesForDeviation = function(deviation) {
-        deviations[color].dh = deviation;
+        deviations[name].dh = deviation;
         registerColors();
         var blobs = detectBlobs(imageData);
         var matchingBlobs = _.select(blobs, function(blob) {
-          return blob.color == color;
+          return blob.color == name;
         });
         return matchingBlobs.length;
       };
       // Increase deviation until we first find a marker of this color
-      var minDeviation = _.step(0.0, 1.0, 100, function(step) {
+      var minDeviation = _.step(0.0, 1.0, 20, function(step) {
         if(matchesForDeviation(step) == 1) return step;
       });
       // Decrease deviation until we find only one marker
-      var maxDeviation = _.step(0.0, 1.0, 100, function(step) {
-        if(matchesForDeviation(1 - step) == 1) return step;
+      var maxDeviation = _.step(0.0, 1.0, 20, function(step) {
+        if(matchesForDeviation(1 - step) == 1) return 1 - step;
       });
       // Set final deviation to average of extremes
-      deviations[color].dh = (minDeviation + maxDeviation) / 2;
+      deviations[name].dh = (minDeviation * 0.75 + maxDeviation * 0.25);
+      console.log("Final deviation for " + name + ": " + deviations[name].dh);
     });
     registerColors();
+  };
+
+  // Replace reference colors with actual colors found in the image
+  var repickColors = function() {
+    var imageData = source.getData();
+    var blobs = detectBlobs(imageData);
+    _.each(blobs, function(blob) {
+      var color = colorDefinitions[blob.color];
+      if(!color) return;
+      var pixel = colorAt(source.context, blob.position.x, blob.position.y);
+      color.copy(pixel);
+    });
+    registerColors();
+  };
+
+  var colorAt = function(context, x, y) {
+    var sum = {
+      r: 0,
+      g: 0,
+      b: 0
+    };
+    var radius = 5;
+    var steps = 0;
+    _.step(x - radius, x + radius, radius * 2 + 1, function(sx) {
+      _.step(x - radius, y + radius, radius * 2 + 1, function(sy) {
+        var pixel = context.getImageData(sx, sy, 1, 1).data;
+        if(pixel) {
+          sum.r += pixel[0];
+          sum.g += pixel[1];
+          sum.b += pixel[2];
+          steps++;
+        }
+      });
+    });
+    return new THREE.Color(sum.r / steps / 255, sum.g / steps / 255, sum.b / steps / 255);
   };
 
   var fovX = 70; // Degrees
   var fovY = 60;
   var radiusAtOneMeter = 15 / 640 * width;
-  var camHeight = 0.6;
+  var camHeight = 60;
   var camRotation = 0; // Radians
 
   var calibrateSpace = function() {
@@ -224,13 +269,19 @@ var ColorTracker = function(cb, width, height) {
       // Set camera height
       camHeight = -positions[0].y;
     } else {
-      console.error("Could not find ground markers");
+      console.error("Calibration failed: Could not find ground markers");
     }
   };
 
   var calibrate = function() {
+    // Make sure we find each marker exactly once
     calibrateColors();
-    calibrateSpace();
+    // Update colors to match actual colors found
+    // repickColors();
+    // Recalibrate for new colors
+    // calibrateColors();
+    // Now that we find all the markers, position the camera space
+    // calibrateSpace();
   };
 
   var getBlobPosition = function(blob) {
@@ -245,7 +296,8 @@ var ColorTracker = function(cb, width, height) {
     var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY));
     var position = new THREE.Vector3(0, 0, depth);
     position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(100);
-    position.setY(position.y + camHeight * 100);
+    position.setY(position.y + camHeight);
+    console.log(position);
     return position;
   };
 
@@ -295,7 +347,7 @@ var ColorTracker = function(cb, width, height) {
     requestAnimationFrame(tick);
     var now = new Date().getTime();
     var delta = now - (lastNow || now);
-    if(delta && delta < 1000 / 8) return;
+    if(delta && delta < 1000 / tracksPerSecond) return;
     lastNow = now;
     // Get image pixels
     var imageData = source.getData();
@@ -317,6 +369,10 @@ var ColorTracker = function(cb, width, height) {
     stop: function() {
       self.running = false;
       return source.pause();
+    },
+
+    calibrate: function() {
+      return source.play().then(calibrate);
     }
   };
 

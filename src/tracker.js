@@ -35,6 +35,10 @@ var Tracker = function(width, height) {
     // Tracking can be restarted at any time
     stop: function() {
       return tracker.stop();
+    },
+
+    calibrate: function() {
+      tracker.calibrate();
     }
   };
 };
