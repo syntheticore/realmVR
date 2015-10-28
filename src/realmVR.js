@@ -4,6 +4,7 @@ var realmVR = {
   Tracker: require('./tracker.js'),
   PositionEngine: require('./positionEngine.js'),
   SpaceManager: require('./spaceManager.js'),
+  RealmVRControls: require('./vrControls.js'),
 
   // Called from [server] to allow for web socket
   // communication between desktop and mobile devices
@@ -50,13 +51,6 @@ var realmVR = {
         console.log(txt);
       });
     });
-  },
-
-  RealmVRControls: function(object, uuid) {
-    var deviceHeadDistance = 1;
-    var RealmVRControls = require('./vrControls.js');
-    var manager = new realmVR.SpaceManager(uuid, deviceHeadDistance);
-    return new RealmVRControls(object, manager, deviceHeadDistance);
   }
 };
 

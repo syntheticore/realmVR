@@ -1,16 +1,22 @@
+var _ = require('eakwell');
 var THREE = require('three');
 
-var RealmVRControls = function(object, manager, deviceHeadDistance) {
+var SpaceManager = require('./spaceManager.js')
+
+var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDistance) {
   var self = this;
   _.eventHandling(self);
-
-  self.object = object;
-  self.object.rotation.reorder('YXZ');
 
   self.enabled = true;
 
   var lastLeftActive = false;
   var lastRightActive = false;
+
+  var manager = new SpaceManager(uuid, deviceHeadDistance);
+
+  camera.rotation.reorder('YXZ');
+  handLeft.rotation.reorder('YXZ');
+  handRight.rotation.reorder('YXZ');
 
   self.connect = function() {
     self.enabled = true;
@@ -32,19 +38,31 @@ var RealmVRControls = function(object, manager, deviceHeadDistance) {
     upVector.applyQuaternion(body.head.orientation);
 
     // Move camera forward to make players head the center of rotation
-    self.object.position.copy(body.head.position).add(viewVector);
-    self.object.quaternion.copy(body.head.orientation);
+    camera.position.copy(body.head.position).add(viewVector);
+    camera.quaternion.copy(body.head.orientation);
+
+    // Update hand postitions
+    handLeft.position.copy(body.left.position);
+    handRight.position.copy(body.right.position);
+    
+    // Orient hand towards camera
+    handLeft.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+    handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Watch hand triggers for changes
     if(body.left.active && !lastLeftActive) {
       self.emit('triggerLeft');
+      self.emit('trigger', ['left']);
     } else if(!body.left.active && lastLeftActive) {
       self.emit('triggerEndLeft');
+      self.emit('triggerEnd', ['left']);
     }
     if(body.right.active && !lastRightActive) {
       self.emit('triggerRight');
+      self.emit('trigger', ['right']);
     } else if(!body.right.active && lastRightActive) {
       self.emit('triggerEndRight');
+      self.emit('triggerEnd', ['right']);
     }
     lastLeftActive = body.left.active;
     lastRightActive = body.right.active;
