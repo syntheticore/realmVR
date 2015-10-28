@@ -162,7 +162,31 @@ var ColorTracker = function(cb, width, height) {
   };
 
   var calibrateColors = function() {
+    var imageData = source.getData();
     // Calibrate each color separately
+    _.each(colors, function(color) {
+      // Return number of markers found for this color with given calibration
+      var matchesForDeviation = function(deviation) {
+        deviations[color].dh = deviation;
+        registerColors();
+        var blobs = detectBlobs(imageData);
+        var matchingBlobs = _.select(blobs, function(blob) {
+          return blob.color == color;
+        });
+        return matchingBlobs.length;
+      };
+      // Increase deviation until we first find a marker of this color
+      var minDeviation = _.step(0.0, 1.0, 100, function(step) {
+        if(matchesForDeviation(step) == 1) return step;
+      });
+      // Decrease deviation until we find only one marker
+      var maxDeviation = _.step(0.0, 1.0, 100, function(step) {
+        if(matchesForDeviation(1 - step) == 1) return step;
+      });
+      // Set final deviation to average of extremes
+      deviations[color].dh = (minDeviation + maxDeviation) / 2;
+    });
+    registerColors();
   };
 
   var fovX = 70; // Degrees
@@ -177,7 +201,7 @@ var ColorTracker = function(cb, width, height) {
     var groundMarkers = _.select(blobs, function(blob) {
       return blob.color == colorCombos.ground[0];
     });
-    if(groundMarkers.length == 2) {
+    if(groundMarkers.length >= 2) {
       // Zero camera configuration to receive raw values
       camHeight = 0;
       camRotation = 0;
