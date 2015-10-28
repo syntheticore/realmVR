@@ -29,11 +29,11 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
         orientation: worldRot.multiply(engine.body.head.orientation)
       },
       left: {
-        position: engine.body.left.position,
+        position: engine.body.left.position.clone().applyQuaternion(worldRot).sub(world.position),
         active: engine.body.left.active
       },
       right: {
-        position: engine.body.right.position,
+        position: engine.body.right.position.clone().applyQuaternion(worldRot).sub(world.position),
         active: engine.body.right.active
       }
     }

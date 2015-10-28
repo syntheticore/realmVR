@@ -39,7 +39,8 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  leftPredictor.feed(new THREE.Vector3(0, 40, 0));
+  leftPredictor.feed(new THREE.Vector3(15, 30, 15));
+  rightPredictor.feed(new THREE.Vector3(-15, 30, 15));
   headPredictor.feed(new THREE.Vector3(0, 40, 0));
 
   var leftActive = false;
