@@ -16,6 +16,10 @@ var Receiver = function(uuid, cb) {
   LOG = function(txt) {
     socket.emit('debug', txt);
   };
+
+  this.calibrationFinished = function() {
+    socket.emit('calibrationFinished', uuid);
+  }
 };
 
 module.exports = Receiver;

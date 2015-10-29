@@ -192,6 +192,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     headingOffsetCorrection = Utils.quaternionFromHeading(-initialAlpha);
     // Determine divergence of gyro from compass
     initialHeadingDiff = getHeadingDiff() || 0;
+    receiver.calibrationFinished();
   };
 
   self.update = function(delta) {

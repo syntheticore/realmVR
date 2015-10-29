@@ -25,6 +25,13 @@ var realmVR = {
           console.error("RealmVR: Device tried to register for expired ID " + uuid);
         }
       });
+      // Mobile device has finished calibration
+      socket.on('calibrationFinished', function(uuid){
+        if(sessions[uuid]) {
+          sessions[uuid].host.emit('calibrationFinished');
+          console.log("RealmVR: Device has calibrated for ID " + uuid);
+        }
+      });
       // Desktop sends data to broadcast
       socket.on('data', function(data){
         // Desktop creates new session

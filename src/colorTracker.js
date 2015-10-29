@@ -301,7 +301,7 @@ var ColorTracker = function(cb, width, height) {
     var position = new THREE.Vector3(0, 0, depth);
     position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(200);
     position.setY(position.y + camHeight);
-    console.log(position);
+    // console.log(position);
     return position;
   };
 
