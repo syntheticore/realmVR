@@ -4,9 +4,14 @@ var ColorTracker = require('./colorTracker.js');
 
 // Used in desktop browser to broadcast
 // tracking data to connected mobile devices
-var Tracker = function(width, height) {
+var Tracker = function(width, height, clientConnected) {
   var socket = io();
   var uuid = 1; //_.uuid();
+
+  socket.on('register', function(body) {
+    clientConnected && clientConnected();
+  });
+
   // Track body through webcam
   var tracker = new ColorTracker(function(body) {
     // Broadcast coordinates to registered mobile devices
@@ -37,8 +42,8 @@ var Tracker = function(width, height) {
       return tracker.stop();
     },
 
-    calibrate: function() {
-      tracker.calibrate();
+    calibrate: function(cb) {
+      tracker.calibrate(cb);
     }
   };
 };

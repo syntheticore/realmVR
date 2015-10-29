@@ -39,9 +39,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  leftPredictor.feed(new THREE.Vector3(15, 30, 15));
-  rightPredictor.feed(new THREE.Vector3(-15, 30, 15));
-  headPredictor.feed(new THREE.Vector3(0, 40, 0));
+  leftPredictor.feed(new THREE.Vector3(15, 60, 15));
+  rightPredictor.feed(new THREE.Vector3(-15, 60, 15));
+  headPredictor.feed(new THREE.Vector3(30, 90, 60));
 
   var leftActive = false;
   var rightActive = false;
@@ -227,9 +227,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     positionCorrection.multiplyScalar(convergenceHeadPos * delta);
 
     // Integrate velocity to yield device position
-    devicePosition.x += velocity.x * delta / 5 + positionCorrection.x;
-    devicePosition.y += velocity.y * delta / 5 + positionCorrection.y;
-    devicePosition.z += velocity.z * delta / 5 + positionCorrection.z;
+    devicePosition.x += velocity.x * delta / 7 + positionCorrection.x;
+    devicePosition.y += velocity.y * delta / 7 + positionCorrection.y;
+    devicePosition.z += velocity.z * delta / 7 + positionCorrection.z;
 
     // Derive head position from device position by following inverse view vector
     var viewVector = getViewVector();

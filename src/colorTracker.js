@@ -184,12 +184,13 @@ var ColorTracker = function(cb, width, height) {
         });
         return matchingBlobs.length;
       };
+      var steps = 10;
       // Increase deviation until we first find a marker of this color
-      var minDeviation = _.step(0.0, 1.0, 20, function(step) {
+      var minDeviation = _.step(0.0, 1.0, steps, function(step) {
         if(matchesForDeviation(step) == 1) return step;
       });
       // Decrease deviation until we find only one marker
-      var maxDeviation = _.step(0.0, 1.0, 20, function(step) {
+      var maxDeviation = _.step(0.0, 1.0, steps, function(step) {
         if(matchesForDeviation(1 - step) == 1) return 1 - step;
       });
       // Set final deviation to average of extremes
@@ -379,12 +380,13 @@ var ColorTracker = function(cb, width, height) {
       return source.pause();
     },
 
-    calibrate: function() {
+    calibrate: function(cb) {
       source.play().then(function() {
         _.waitFor(function() {
           return source.getData();
         }, function() {
           calibrate();
+          cb();
         });
       });
     }

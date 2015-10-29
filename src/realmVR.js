@@ -15,8 +15,15 @@ var realmVR = {
     IO.on('connection', function(socket){
       // Mobile device registers for updates
       socket.on('register', function(uuid){
-        if(sessions[uuid]) sessions[uuid].clients.push(socket);
-        console.log("RealmVR: Device registered for ID " + uuid);
+        if(sessions[uuid]) {
+          // Save client in session
+          sessions[uuid].clients.push(socket);
+          // Tell host about client
+          sessions[uuid].host.emit('register');
+          console.log("RealmVR: Device registered for ID " + uuid);
+        } else {
+          console.error("RealmVR: Device tried to register for expired ID " + uuid);
+        }
       });
       // Desktop sends data to broadcast
       socket.on('data', function(data){
