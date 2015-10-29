@@ -8,7 +8,7 @@ var ColorTracker = function(cb, width, height) {
   width = width || 640;
   height = height || 480;
 
-  var tracksPerSecond = 8;
+  var tracksPerSecond = 4;
 
   var source = new VideoSource(width, height);
 
@@ -48,6 +48,7 @@ var ColorTracker = function(cb, width, height) {
 
   registerColors();
 
+  // Combinations of color that represent a single entity
   var colorCombos = {
     head: ['apple'],
     // left: ['magenta', 'cyan'],
@@ -58,8 +59,8 @@ var ColorTracker = function(cb, width, height) {
   var colors;
   var tracker;
 
+  // Initialize tracker with all colors needed
   var configureTracker = function(combos) {
-    // Define combinations of color that represent a single entity
     colors = _.unique(_.flatten(_.values(combos)));
     tracker = new tracking.ColorTracker(colors);
   };
@@ -85,13 +86,11 @@ var ColorTracker = function(cb, width, height) {
     });
     // Emit track event
     tracker.track(imageData.data, width, height);
-    // Draw rectangles back onto canvas
-    drawBlobs(blobs, source.context);
     return blobs;
   };
 
+  // Draw rectangles around blobs
   var drawBlobs = function(blobs, context) {
-    // source.context.clearRect(0, 0, source.canvas.width, source.canvas.height);
     _.each(blobs, function(blob) {
       context.strokeStyle = blob.color;
       context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
@@ -170,8 +169,9 @@ var ColorTracker = function(cb, width, height) {
     };
   };
 
-  var calibrateColors = function() {
-    var imageData = source.getData();
+  // Adjust color deviations to yield
+  // more stable tracker performance
+  var calibrateColors = function(imageData) {
     // Calibrate each color separately
     _.each(colorDefinitions, function(color, name) {
       // Return number of markers found for this color with given calibration
@@ -200,19 +200,19 @@ var ColorTracker = function(cb, width, height) {
   };
 
   // Replace reference colors with actual colors found in the image
-  var repickColors = function() {
-    var imageData = source.getData();
+  var repickColors = function(imageData) {
     var blobs = detectBlobs(imageData);
     _.each(blobs, function(blob) {
       var color = colorDefinitions[blob.color];
       if(!color) return;
-      var pixel = colorAt(source.context, blob.position.x, blob.position.y);
+      var pixel = colorAround(source.context, blob.position.x, blob.position.y);
       color.copy(pixel);
     });
     registerColors();
   };
 
-  var colorAt = function(context, x, y) {
+  // Average color surrounding the given coordinates
+  var colorAround = function(context, x, y) {
     var sum = {
       r: 0,
       g: 0,
@@ -234,14 +234,15 @@ var ColorTracker = function(cb, width, height) {
     return new THREE.Color(sum.r / steps / 255, sum.g / steps / 255, sum.b / steps / 255);
   };
 
+  // Find camera height and orientation
+  // and adjust calibration accordingly
   var fovX = 70; // Degrees
   var fovY = 60;
   var radiusAtOneMeter = 15 / 640 * width;
   var camHeight = 60;
   var camRotation = 0; // Radians
 
-  var calibrateSpace = function() {
-    var imageData = source.getData();
+  var calibrateSpace = function(imageData) {
     var blobs = detectBlobs(imageData);
     var groundMarkers = _.select(blobs, function(blob) {
       return blob.color == colorCombos.ground[0];
@@ -274,16 +275,18 @@ var ColorTracker = function(cb, width, height) {
   };
 
   var calibrate = function() {
+    var imageData = source.getData();
     // Make sure we find each marker exactly once
-    calibrateColors();
+    calibrateColors(imageData);
     // Update colors to match actual colors found
-    // repickColors();
+    // repickColors(imageData);
     // Recalibrate for new colors
-    // calibrateColors();
+    // calibrateColors(imageData);
     // Now that we find all the markers, position the camera space
-    // calibrateSpace();
+    // calibrateSpace(imageData);
   };
 
+  // Get blob position in world space
   var getBlobPosition = function(blob) {
     var depth = radiusAtOneMeter / blob.radius;
     var angleX = -fovX * (blob.position.x / width - 0.5);
@@ -295,13 +298,14 @@ var ColorTracker = function(cb, width, height) {
     xAxis.applyQuaternion(rotY);
     var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY));
     var position = new THREE.Vector3(0, 0, depth);
-    position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(100);
+    position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(200);
     position.setY(position.y + camHeight);
     console.log(position);
     return position;
   };
 
-  var detectHead = function(blobs) {
+  // Return head position if found
+  var getHeadPosition = function(blobs) {
     var headBlob = _.find(blobs, function(blob) {
       return blob.color == colorCombos.head[0];
     });
@@ -310,11 +314,11 @@ var ColorTracker = function(cb, width, height) {
     }
   };
 
-  // Detect the real world positions of
+  // Detect the world positions of
   // all body parts using the given image
   var getBodyParts = function(imageData) {
     var blobs = detectBlobs(imageData);
-    var head = detectHead(blobs);
+    var head = getHeadPosition(blobs);
     // var markers = detectMarkers(blobs);
 
     var markers = {
@@ -330,6 +334,9 @@ var ColorTracker = function(cb, width, height) {
         active: false
       }
     };
+
+    // Draw rectangles back onto canvas
+    drawBlobs(blobs, source.context);
 
     return markers;
 

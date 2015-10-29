@@ -35,9 +35,9 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   };
   
   // Receive and predict absolute positions from tracker
-  var leftPredictor = new VectorPredictor(null, null, true);
-  var rightPredictor = new VectorPredictor(null, null, true);
-  var headPredictor = new VectorPredictor(null, null, true);
+  var leftPredictor = new VectorPredictor();
+  var rightPredictor = new VectorPredictor();
+  var headPredictor = new VectorPredictor();
 
   leftPredictor.feed(new THREE.Vector3(15, 30, 15));
   rightPredictor.feed(new THREE.Vector3(-15, 30, 15));
