@@ -181,7 +181,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var lastMagnetometerValue;
 
   // Calibrate on Cardboard 2.0 switch activation
-  window.addEventListener('touchend', function() {
+  window.addEventListener('click', function() {
     self.calibrate();
   }, false);
 

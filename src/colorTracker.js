@@ -8,7 +8,7 @@ var ColorTracker = function(cb, width, height) {
   width = width || 640;
   height = height || 480;
 
-  var tracksPerSecond = 8;
+  var tracksPerSecond = 4;
 
   var source = new VideoSource(width, height);
 

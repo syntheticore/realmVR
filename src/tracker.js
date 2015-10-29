@@ -4,16 +4,21 @@ var ColorTracker = require('./colorTracker.js');
 
 // Used in desktop browser to broadcast
 // tracking data to connected mobile devices
-var Tracker = function(width, height, clientConnected, calibrationFinished) {
+var Tracker = function(width, height) {
+  var self = this;
+  _.eventHandling(self);
+
   var socket = io();
-  var uuid = 1; //_.uuid();
+
+  // ID that clients use to connect
+  self.uuid = 1; //_.uuid();
 
   socket.on('register', function(body) {
-    clientConnected && clientConnected();
+    self.emit('clientConnected');
   });
 
   socket.on('calibrationFinished', function(body) {
-    calibrationFinished && calibrationFinished();
+    self.emit('calibrationFinished');
   });
 
   // Track body through webcam
@@ -21,34 +26,29 @@ var Tracker = function(width, height, clientConnected, calibrationFinished) {
     // Broadcast coordinates to registered mobile devices
     if(!body.head || !body.head.position) return;
     socket.emit('data', {
-      uuid: uuid,
+      uuid: self.uuid,
       body: body
     });
   }, width, height);
 
-  return {
-    // ID that clients can use to connect
-    uuid: uuid,
+  // Canvas with tracking markers on video stream
+  self.canvas = tracker.videoSource.canvas;
 
-    // Canvas with tracking markers on video stream
-    canvas: tracker.videoSource.canvas,
+  // Start broadcasting tracking data
+  self.start = function() {
+    // Broadcast empty packet to start session
+    socket.emit('data', {uuid: self.uuid});
+    return tracker.start();
+  };
 
-    // Start broadcasting tracking data
-    start: function() {
-      // Broadcast empty packet to start session
-      socket.emit('data', {uuid: uuid});
-      return tracker.start();
-    },
+  // Stop broadcasting tracking data
+  // Tracking can be restarted at any time
+  self.stop = function() {
+    return tracker.stop();
+  };
 
-    // Stop broadcasting tracking data
-    // Tracking can be restarted at any time
-    stop: function() {
-      return tracker.stop();
-    },
-
-    calibrate: function(cb) {
-      tracker.calibrate(cb);
-    }
+  self.calibrate = function(cb) {
+    tracker.calibrate(cb);
   };
 };
 
