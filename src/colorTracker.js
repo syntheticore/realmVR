@@ -8,7 +8,7 @@ var ColorTracker = function(cb, width, height) {
   width = width || 640;
   height = height || 480;
 
-  var tracksPerSecond = 4;
+  var tracksPerSecond = 8;
 
   var source = new VideoSource(width, height);
 
@@ -96,9 +96,9 @@ var ColorTracker = function(cb, width, height) {
       context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
       context.font = '11px Helvetica';
       context.fillStyle = "#fff";
-      context.fillText('x: ' + blob.position.x + 'px', blob.position.x, blob.position.y + 22);
-      context.fillText('y: ' + blob.position.y + 'px', blob.position.x, blob.position.y + 33);
-      context.fillText(blob.color, blob.position.x, blob.position.y + 44);
+      context.fillText(blob.color, blob.position.x - blob.radius, blob.position.y + blob.radius + 11);
+      context.fillText('x: ' + blob.position.x + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 22);
+      context.fillText('y: ' + blob.position.y + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 33);
     });
   };
 
@@ -369,6 +369,7 @@ var ColorTracker = function(cb, width, height) {
     videoSource: source,
 
     start: function() {
+      if(self.running) return _.promiseFrom(null);
       self.running = true;
       return source.play().then(tick);
     },
@@ -379,7 +380,13 @@ var ColorTracker = function(cb, width, height) {
     },
 
     calibrate: function() {
-      return source.play().then(calibrate);
+      source.play().then(function() {
+        _.waitFor(function() {
+          return source.getData();
+        }, function() {
+          calibrate();
+        });
+      });
     }
   };
 
