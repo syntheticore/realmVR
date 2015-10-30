@@ -16,19 +16,20 @@ var ColorTracker = function(cb, width, height) {
   // Colors that differ less than the given thresholds
   // in HSL color space are considered for tracking
   var registerColor = function(name, color, deviation) {
-    var hsl = color.getHSL();
+    // var hsl = color.getHSL();
     var pixelColor = new THREE.Color();
     tracking.ColorTracker.registerColor(name, function(r, g, b) {
       pixelColor.setRGB(r / 255, g / 255, b / 255);
-      var hslPixel = pixelColor.getHSL();
-      return Math.abs(hslPixel.h - hsl.h) < deviation.dh &&
-             Math.abs(hslPixel.s - hsl.s) < deviation.ds &&
-             Math.abs(hslPixel.l - hsl.l) < deviation.dl;
+      return Math.abs(pixelColor.r - color.r) + Math.abs(pixelColor.g - color.g) +  Math.abs(pixelColor.b - color.b) / 3 < deviation.dh;
+      // var hslPixel = pixelColor.getHSL();
+      // return Math.abs(hslPixel.h - hsl.h) < deviation.dh &&
+      //        Math.abs(hslPixel.s - hsl.s) < deviation.ds &&
+      //        Math.abs(hslPixel.l - hsl.l) < deviation.dl;
     });
   };
 
   var deviations = {
-    apple: {dh: 0.1, ds: 0.3, dl: 0.3},
+    apple: {dh: 0.15, ds: 0.3, dl: 0.2},
     cardinal: {dh: 0.1, ds: 0.15, dl: 0.15},
     magenta: {dh: 0.1, ds: 0.3, dl: 0.3},
     cyan: {dh: 0.1, ds: 0.3, dl: 0.3}
@@ -63,6 +64,9 @@ var ColorTracker = function(cb, width, height) {
   var configureTracker = function(combos) {
     colors = _.unique(_.flatten(_.values(combos)));
     tracker = new tracking.ColorTracker(colors);
+    tracker.setMinDimension(10);
+    tracker.setMaxDimension(height * 2 / 3);
+    tracker.setMinGroupSize(50);
   };
 
   configureTracker(colorCombos);
@@ -184,7 +188,7 @@ var ColorTracker = function(cb, width, height) {
         });
         return matchingBlobs.length;
       };
-      var steps = 10;
+      var steps = 30;
       // Increase deviation until we first find a marker of this color
       var minDeviation = _.step(0.0, 1.0, steps, function(step) {
         if(matchesForDeviation(step) == 1) return step;
