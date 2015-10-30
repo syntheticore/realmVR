@@ -101,8 +101,8 @@ var ColorTracker = function(cb, width, height) {
       context.font = '11px Helvetica';
       context.fillStyle = "#fff";
       context.fillText(blob.color, blob.position.x - blob.radius, blob.position.y + blob.radius + 11);
-      context.fillText('x: ' + blob.position.x + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 22);
-      context.fillText('y: ' + blob.position.y + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 33);
+      // context.fillText('x: ' + blob.position.x + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 22);
+      // context.fillText('y: ' + blob.position.y + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 33);
     });
   };
 
