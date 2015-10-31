@@ -1,6 +1,6 @@
 {
   "name": "realm-vr",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Positional tracking for Google Cardboard",
   "homepage": "https://github.com/syntheticore/realmVR",
   "author": "Björn Breitgoff <syntheticore@gmail.com>",
