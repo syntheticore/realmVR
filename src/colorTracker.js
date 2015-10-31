@@ -197,7 +197,7 @@ var ColorTracker = function(cb, width, height) {
       var maxDeviation = _.step(0.0, 1.0, steps, function(step) {
         if(matchesForDeviation(1 - step) == 1) return 1 - step;
       });
-      // Set final deviation to average of extremes
+      // Set final deviation to weighted average of extremes
       deviations[name].dh = (minDeviation * 0.75 + maxDeviation * 0.25);
       console.log("Final deviation for " + name + ": " + deviations[name].dh);
     });
@@ -293,17 +293,22 @@ var ColorTracker = function(cb, width, height) {
 
   // Get blob position in world space
   var getBlobPosition = function(blob) {
+    // Calculate depth of blob from its radius in the image
     var depth = radiusAtOneMeter / blob.radius;
+    // Calculate angles using camera's FOV
     var angleX = -fovX * (blob.position.x / width - 0.5);
     var angleY = fovY * (blob.position.y / height - 0.5);
+    // Build rotations for these angles
     var yAxis = new THREE.Vector3(0, 1, 0);
     var rotY = (new THREE.Quaternion()).setFromAxisAngle(yAxis, THREE.Math.degToRad(angleX));
     var xAxis = new THREE.Vector3(1, 0, 0);
-    var camRot = (new THREE.Quaternion()).setFromAxisAngle(xAxis, camRotation);
     xAxis.applyQuaternion(rotY);
-    var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY));
-    var position = new THREE.Vector3(0, 0, depth);
-    position.applyQuaternion(rotY).applyQuaternion(rotX).applyQuaternion(camRot).multiplyScalar(200);
+    // Add in calibrated camera rotation
+    var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY) + camRotation);
+    // Rotate depth vector to yield blob position
+    var position = new THREE.Vector3(0, 0, depth * 100);
+    position.applyQuaternion(rotY).applyQuaternion(rotX);
+    // Add camera height to yield world position
     position.setY(position.y + camHeight);
     // console.log(position);
     return position;

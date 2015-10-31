@@ -1,8 +1,9 @@
 var THREE = require('three');
 var _ = require('eakwell');
 
+var Receiver = require('./receiver.js');
 var PositionEngine = require('./positionEngine.js');
-var utils = require('./utils.js');
+var Utils = require('./utils.js');
 
 var SpaceManager = function(uuid, deviceHeadDistance) {
   var self = this;
@@ -18,11 +19,14 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
     rotation: -90
   };
 
-  var engine = new PositionEngine(uuid, deviceHeadDistance);
+  var bounds = [];
+
+  var receiver = new Receiver(uuid);
+  var engine = new PositionEngine(receiver, deviceHeadDistance);
 
   // Get player pose on game space
   var getGameBody = function() {
-    var worldRot = utils.quaternionFromHeading(-world.rotation);
+    var worldRot = Utils.quaternionFromHeading(-world.rotation);
     return {
       head: {
         position: engine.body.head.position.clone().applyQuaternion(worldRot).sub(world.position),
@@ -56,6 +60,21 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
     // the player when he turns to match the correction
     world.rotation = wrapAround(world.rotation + 90 + wallAngle);
   };
+
+  // Let the player define the bounds of the play space
+  // by pressing the headset button in three different locations
+  window.addEventListener('headsetButtonPressed', function() {
+    // Collect first three locations
+    if(bounds.length < 3) {
+      bounds.push(engine.body.head.position.clone().setY(0));
+      if(bounds.length == 3) {
+        // Tell desktop we're done
+        receiver.playspaceFinished();
+      }
+    }
+  }, false);
+
+  var ready2rock = false;
 
   var lastPos;
 
@@ -108,7 +127,7 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
     var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
     
     if(upLooking < 0.1) {
-      var worldRot = utils.quaternionFromHeading(-world.rotation);
+      var worldRot = Utils.quaternionFromHeading(-world.rotation);
       world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.5).applyQuaternion(worldRot));
     }
 
@@ -133,6 +152,11 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
     lastPos = pos;
 
     return getGameBody();
+  };
+
+  self.calibrate = function() {
+    engine.calibrate();
+    receiver.calibrationFinished();
   };
 
   // Place the player in an arbitrary position in the game world

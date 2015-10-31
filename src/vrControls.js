@@ -74,6 +74,10 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
     }
   };
 
+  self.calibrate = function() {
+    manager.calibrate();
+  };
+
   self.dispose = function() {
     self.disconnect();
   };

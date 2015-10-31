@@ -20,12 +20,16 @@ var Tracker = function(width, height) {
   socket.on('calibrationFinished', function(body) {
     self.emit('calibrationFinished');
   });
+  
+  socket.on('playspaceFinished', function(body) {
+    self.emit('playspaceFinished');
+  });
 
   // Track body through webcam
   var tracker = new ColorTracker(function(body) {
     // Broadcast coordinates to registered mobile devices
     if(!body.head || !body.head.position) return;
-    socket.emit('data', {
+    socket.emit('track', {
       uuid: self.uuid,
       body: body
     });
@@ -37,7 +41,7 @@ var Tracker = function(width, height) {
   // Start broadcasting tracking data
   self.start = function() {
     // Broadcast empty packet to start session
-    socket.emit('data', {uuid: self.uuid});
+    socket.emit('track', {uuid: self.uuid});
     return tracker.start();
   };
 

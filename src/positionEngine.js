@@ -1,10 +1,9 @@
 var THREE = require('three');
 var _ = require('eakwell');
 
-var Receiver = require('./receiver.js');
 var Utils = require('./utils.js');
 
-var PositionEngine = function(uuid, deviceHeadDistance) {
+var PositionEngine = function(receiver, deviceHeadDistance) {
   var self = this;
 
   var convergenceHeadPos = 0.002;
@@ -46,7 +45,7 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
   var leftActive = false;
   var rightActive = false;
 
-  var receiver = new Receiver(uuid, function(body) {
+  receiver.on('track', function(body) {
     leftPredictor.feed(body.left.position);
     rightPredictor.feed(body.right.position);
     headPredictor.feed(body.head.position);
@@ -76,6 +75,10 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
 
   _.on(window, 'orientationchange', function(e) {
     screenOrientation = window.orientation;
+    // Prevent white border problem in Safari
+    _.defer(function() {
+      window.scrollTo(0, 0);
+    }, 500);
   });
 
   // Update and predict device orientation
@@ -165,11 +168,22 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     }
   };
 
+  // Current looking direction
   var getViewVector = function() {
     var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance);
     viewVector.applyQuaternion(self.body.head.orientation);
     return viewVector;
   };
+
+  // Dispatch headset button event for others to enjoy
+  var onHeadsetButtonPressed = function() {
+    window.dispatchEvent(new Event('headsetButtonPressed'));
+  };
+
+  // Cardboard 2.0 switch activation
+  window.addEventListener('click', function() {
+    onHeadsetButtonPressed();
+  }, false);
 
   var devicePosition = new THREE.Vector3();
   var initialHeadingDiff = 0;
@@ -180,11 +194,6 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
 
   var lastMagnetometerValue;
 
-  // Calibrate on Cardboard 2.0 switch activation
-  window.addEventListener('click', function() {
-    self.calibrate();
-  }, false);
-
   // Call calibrate once while oriented towards camera
   self.calibrate = function() {
     // Determine forward direction
@@ -192,7 +201,6 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     headingOffsetCorrection = Utils.quaternionFromHeading(-initialAlpha);
     // Determine divergence of gyro from compass
     initialHeadingDiff = getHeadingDiff() || 0;
-    receiver.calibrationFinished();
   };
 
   self.update = function(delta) {
@@ -200,10 +208,12 @@ var PositionEngine = function(uuid, deviceHeadDistance) {
     var deviceOrientation = getDeviceOrientation();
     var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
 
-    // Calibrate on Cardboard 1.0 switch activation
+    // Cardboard 1.0 switch activation
     if(useMagnetSwitch && deviceOrientation.heading && !doCompassCorrection) {
       var diff = Math.abs(deviceOrientation.heading - (lastMagnetometerValue || deviceOrientation.heading));
-      if(diff > magnetThreshold) self.calibrate();
+      if(diff > magnetThreshold) {
+        onHeadsetButtonPressed();
+      }
       lastMagnetometerValue = deviceOrientation.heading;
     }
 

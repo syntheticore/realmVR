@@ -32,8 +32,15 @@ var realmVR = {
           console.log("RealmVR: Device has calibrated for ID " + uuid);
         }
       });
+      // Player has defined workspace bounds
+      socket.on('playspaceFinished', function(uuid){
+        if(sessions[uuid]) {
+          sessions[uuid].host.emit('playspaceFinished');
+          console.log("RealmVR: Player has defined workspace for ID " + uuid);
+        }
+      });
       // Desktop sends data to broadcast
-      socket.on('data', function(data){
+      socket.on('track', function(data){
         // Desktop creates new session
         if(!sessions[data.uuid]) {
           sessions[data.uuid] = {
@@ -44,7 +51,7 @@ var realmVR = {
         // Dispatch data to registered clients in the same session
         } else {
           _.each(sessions[data.uuid].clients, function(sock) {
-            sock.emit('data', data.body);
+            sock.emit('track', data.body);
           });
         }
       });
