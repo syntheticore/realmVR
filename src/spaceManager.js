@@ -1,11 +1,10 @@
 var THREE = require('three');
 var _ = require('eakwell');
 
-var Receiver = require('./receiver.js');
 var PositionEngine = require('./positionEngine.js');
 var Utils = require('./utils.js');
 
-var SpaceManager = function(uuid, deviceHeadDistance) {
+var SpaceManager = function(receiver, deviceHeadDistance) {
   var self = this;
 
   var positionCorrectionStrength = 0.5;
@@ -21,7 +20,6 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
 
   var bounds = [];
 
-  var receiver = new Receiver(uuid);
   var engine = new PositionEngine(receiver, deviceHeadDistance);
 
   var world2game = function(pos, worldRot) {

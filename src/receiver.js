@@ -10,11 +10,12 @@ var Receiver = function(uuid) {
   var socket = io();
   socket.emit('register', uuid);
   
-  // Feed engine with real world positions
+  // Emit track event when desktop sends data
   socket.on('track', function(body) {
     self.emit('track', [body]);
   });
 
+  // Emit configuration event when desktop sends data
   socket.on('configuration', function(config) {
     self.emit('configuration', [config]);
   });

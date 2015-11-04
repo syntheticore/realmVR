@@ -1,6 +1,7 @@
 var _ = require('eakwell');
 var THREE = require('three');
 
+var Receiver = require('./receiver.js');
 var SpaceManager = require('./spaceManager.js')
 
 var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDistance) {
@@ -12,11 +13,16 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
   var lastLeftActive = false;
   var lastRightActive = false;
 
-  var manager = new SpaceManager(uuid, deviceHeadDistance);
+  var receiver = new Receiver(uuid);
+  var manager = new SpaceManager(receiver, deviceHeadDistance);
 
   camera.rotation.reorder('YXZ');
   handLeft.rotation.reorder('YXZ');
   handRight.rotation.reorder('YXZ');
+
+  receiver.on('configuration', function(config) {
+    self.emit('configuration', [config]);
+  });
 
   self.connect = function() {
     self.enabled = true;
