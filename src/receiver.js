@@ -15,6 +15,10 @@ var Receiver = function(uuid) {
     self.emit('track', [body]);
   });
 
+  socket.on('configuration', function(config) {
+    self.emit('configuration', [config]);
+  });
+
   // Tell server that the player has placed the headset into its tray
   this.calibrationFinished = function() {
     socket.emit('calibrationFinished', uuid);

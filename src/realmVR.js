@@ -55,6 +55,14 @@ var realmVR = {
           });
         }
       });
+      // Desktop sends configuration data to client
+      socket.on('configuration', function(data){
+        if(sessions[data.uuid]) {
+          _.each(sessions[data.uuid].clients, function(sock) {
+            sock.emit('configuration', data.config);
+          });
+        }
+      });
       // Remove socket when client disconnects
       socket.on('disconnect', function(){
         _.each(sessions, function(session, uuid) {

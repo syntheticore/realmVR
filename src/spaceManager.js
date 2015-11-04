@@ -24,20 +24,24 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
   var receiver = new Receiver(uuid);
   var engine = new PositionEngine(receiver, deviceHeadDistance);
 
+  var world2game = function(pos, worldRot) {
+    return pos.clone().applyQuaternion(worldRot).sub(world.position);
+  };
+
   // Get player pose on game space
   var getGameBody = function() {
     var worldRot = Utils.quaternionFromHeading(-world.rotation);
     return {
       head: {
-        position: engine.body.head.position.clone().applyQuaternion(worldRot).sub(world.position),
-        orientation: worldRot.multiply(engine.body.head.orientation)
+        position: world2game(engine.body.head.position, worldRot),
+        orientation: worldRot.clone().multiply(engine.body.head.orientation)
       },
       left: {
-        position: engine.body.left.position.clone().applyQuaternion(worldRot).sub(world.position),
+        position: world2game(engine.body.left.position, worldRot),
         active: engine.body.left.active
       },
       right: {
-        position: engine.body.right.position.clone().applyQuaternion(worldRot).sub(world.position),
+        position: world2game(engine.body.right.position, worldRot),
         active: engine.body.right.active
       }
     }
@@ -60,19 +64,6 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
     // the player when he turns to match the correction
     world.rotation = wrapAround(world.rotation + 90 + wallAngle);
   };
-
-  // Let the player define the bounds of the play space
-  // by pressing the headset button in three different locations
-  window.addEventListener('headsetButtonPressed', function() {
-    // Collect first three locations
-    if(bounds.length < 3) {
-      bounds.push(engine.body.head.position.clone().setY(0));
-      if(bounds.length == 3) {
-        // Tell desktop we're done
-        receiver.playspaceFinished();
-      }
-    }
-  }, false);
 
   var ready2rock = false;
 
@@ -155,8 +146,23 @@ var SpaceManager = function(uuid, deviceHeadDistance) {
   };
 
   self.calibrate = function() {
+    // Start local calibration
     engine.calibrate();
+    // Start calibration process on the desktop
     receiver.calibrationFinished();
+    // Let the player define the bounds of the play space
+    // by pressing the headset button in three different locations
+    var boundsHandler = _.on(window, 'headsetButtonPressed', function() {
+      // Collect first three locations
+      if(bounds.length < 3) {
+        bounds.push(engine.body.head.position.clone().setY(0));
+        if(bounds.length == 3) {
+          // Tell desktop we're done
+          receiver.playspaceFinished();
+          _.off(window, 'headsetButtonPressed', boundsHandler);
+        }
+      }
+    }, false);
   };
 
   // Place the player in an arbitrary position in the game world

@@ -398,6 +398,13 @@ var ColorTracker = function(cb, width, height) {
           cb();
         });
       });
+    },
+
+    setDeviations: function(devs) {
+      _.each(devs, function(deviation, name) {
+        deviations[name].dh = deviation;
+      });
+      registerColors();
     }
   };
 

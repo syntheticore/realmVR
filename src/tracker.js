@@ -54,6 +54,20 @@ var Tracker = function(width, height) {
   self.calibrate = function(cb) {
     tracker.calibrate(cb);
   };
+
+  self.setColorCalibration = function(apple, cardinal) {
+    tracker.setDeviations({
+      apple: apple,
+      cardinal: cardinal
+    });
+  };
+
+  self.setEngineConfig = function(config) {
+    socket.emit('configuration', {
+      uuid: self.uuid,
+      config: config
+    });
+  };
 };
 
 module.exports = Tracker;
