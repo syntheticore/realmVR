@@ -16,6 +16,11 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
   var receiver = new Receiver(uuid);
   var manager = new SpaceManager(receiver, deviceHeadDistance);
 
+  manager.once('playspaceFinished', function() {
+    self.boundingBox = manager.getBoundingBox();
+    self.emit('playspaceFinished');
+  });
+
   camera.rotation.reorder('YXZ');
   handLeft.rotation.reorder('YXZ');
   handRight.rotation.reorder('YXZ');
@@ -54,6 +59,12 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
     // Orient hand towards camera
     handLeft.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
     handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+
+    // Move bounding box
+    if(self.boundingBox) {
+      self.boundingBox.position.copy(body.origin.position);
+      self.boundingBox.quaternion.copy(body.origin.orientation);
+    }
 
     // Watch hand triggers for changes
     if(body.left.active && !lastLeftActive) {

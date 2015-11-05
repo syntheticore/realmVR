@@ -6,6 +6,7 @@ var Utils = require('./utils.js');
 
 var SpaceManager = function(receiver, deviceHeadDistance) {
   var self = this;
+  _.eventHandling(self);
 
   var positionCorrectionStrength = 0.5;
   var rotationCorrectionStrength = 0.5;
@@ -18,31 +19,64 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     rotation: -90
   };
 
-  var bounds = [];
+  var boundMarkers = [];
 
   var engine = new PositionEngine(receiver, deviceHeadDistance);
 
   var world2game = function(pos, worldRot) {
-    return pos.clone().applyQuaternion(worldRot).sub(world.position);
+    return pos.applyQuaternion(worldRot).sub(world.position);
   };
 
-  // Get player pose on game space
+  // Get player pose in game space
   var getGameBody = function() {
     var worldRot = Utils.quaternionFromHeading(-world.rotation);
     return {
       head: {
-        position: world2game(engine.body.head.position, worldRot),
+        position: world2game(engine.body.head.position.clone(), worldRot),
         orientation: worldRot.clone().multiply(engine.body.head.orientation)
       },
       left: {
-        position: world2game(engine.body.left.position, worldRot),
+        position: world2game(engine.body.left.position.clone(), worldRot),
         active: engine.body.left.active
       },
       right: {
-        position: world2game(engine.body.right.position, worldRot),
+        position: world2game(engine.body.right.position.clone(), worldRot),
         active: engine.body.right.active
+      },
+      origin: {
+        position: world2game(new THREE.Vector3(), worldRot),
+        orientation: worldRot
       }
     }
+  };
+
+  var getBounds = function() {
+    var bounds = {
+      front: 0, //XXX Calculate front
+      back:  boundMarkers[0].z,
+      right: boundMarkers[1].x,
+      left:  boundMarkers[2].x
+    };
+    return bounds;
+  };
+
+  self.getBoundingBox = function() {
+    var bounds = getBounds();
+    var width = bounds.right - bounds.left;
+    var length = bounds.back - bounds.front;
+    var height = (width + length) / 2;
+    var cubeGeometry = new THREE.CubeGeometry(width, height, length);
+    cubeGeometry.translate((bounds.right + bounds.left) / 2, height / 2, (bounds.back + bounds.front) / 2);
+    var cube = new THREE.Mesh(cubeGeometry, new THREE.MeshBasicMaterial({
+      shading: THREE.FlatShading,
+      side: THREE.DoubleSide,
+      color: 0x2194ce,
+      transparent: true,
+      opacity: 0.8,
+      wireframe: true
+    }));
+    cube.rotation.reorder('YXZ');
+    return cube;
   };
 
   // Distance to real world bounds
@@ -152,11 +186,13 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     // by pressing the headset button in three different locations
     var boundsHandler = _.on(window, 'headsetButtonPressed', function() {
       // Collect first three locations
-      if(bounds.length < 3) {
-        bounds.push(engine.body.head.position.clone().setY(0));
-        if(bounds.length == 3) {
+      if(boundMarkers.length < 3) {
+        boundMarkers.push(engine.body.head.position.clone().setY(0));
+        if(boundMarkers.length == 3) {
           // Tell desktop we're done
           receiver.playspaceFinished();
+          // VRControls need our bounding box
+          self.emit('playspaceFinished');
           _.off(window, 'headsetButtonPressed', boundsHandler);
         }
       }
