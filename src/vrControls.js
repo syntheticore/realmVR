@@ -20,7 +20,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
   var raycaster = new THREE.Raycaster();
 
   manager.once('playspaceFinished', function() {
-    self.boundingBox = manager.getBoundingBox();
+    self.boundingBox = manager.boundingBox;
     self.emit('playspaceFinished');
   });
 

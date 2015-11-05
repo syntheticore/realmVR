@@ -11,7 +11,6 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
   var positionCorrectionStrength = 0.5;
   var rotationCorrectionStrength = 0.5;
 
-  var boundsRadius = 200;
   var maxBoundsDistance = 20;
 
   var world = {
@@ -57,23 +56,24 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       right: 100,  //boundMarkers[1].x,
       left:  -100  //boundMarkers[2].x
     };
+    bounds.width = bounds.right - bounds.left;
+    bounds.length = bounds.back - bounds.front;
+    bounds.height = (bounds.width + bounds.length) / 2;
+    bounds.center = new THREE.Vector3((bounds.right + bounds.left) / 2, bounds.height / 2, (bounds.back + bounds.front) / 2);
     return bounds;
   };
 
-  self.getBoundingBox = function() {
-    var bounds = getBounds();
-    var width = bounds.right - bounds.left;
-    var length = bounds.back - bounds.front;
-    var height = (width + length) / 2;
-    var cubeGeometry = new THREE.CubeGeometry(width, height, length);
-    cubeGeometry.translate((bounds.right + bounds.left) / 2, height / 2, (bounds.back + bounds.front) / 2);
+  var getBoundingBox = function() {
+    var cubeGeometry = new THREE.BoxGeometry(self.bounds.width, self.bounds.height, self.bounds.length, 4, 4, 4);
+    cubeGeometry.translate(0, self.bounds.height / 2, (self.bounds.back + self.bounds.front) / 2 + self.bounds.front);
     var cube = new THREE.Mesh(cubeGeometry, new THREE.MeshBasicMaterial({
       shading: THREE.FlatShading,
       side: THREE.DoubleSide,
       color: 0x2194ce,
       transparent: true,
-      opacity: 0.8,
-      wireframe: true
+      opacity: 0.5,
+      wireframe: true,
+      wireframeLinewidth: 1
     }));
     cube.rotation.reorder('YXZ');
     return cube;
@@ -81,7 +81,12 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   // Distance to real world bounds
   var distanceToBounds = function(point) {
-    return Math.max(boundsRadius - point.length());
+    return self.bounds.width / 2 - distanceToCenter(point);
+  };
+
+  // Distance to real world bounds center
+  var distanceToCenter = function(point) {
+    return self.bounds.center.clone().setY(0).distanceTo(point);
   };
 
   // Reorient the game world in an optimal way for
@@ -113,6 +118,8 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     // Get player position in world space
     var corrections = engine.update(delta);
 
+    if(!self.bounds) return getGameBody();
+
     // 2D world position
     var pos = engine.body.head.position.clone().setY(0);
 
@@ -129,6 +136,10 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       outOfBounds = false;
     }
 
+    // Show bounding box when near walls
+    var boundsRadius = self.bounds.width / 2;
+    self.boundingBox.material.opacity = (boundsRadius - wallDistance) / boundsRadius / 2;
+
     // Find walking direction
     lastWalkMarker = lastWalkMarker || pos;
     if(pos.distanceTo(lastWalkMarker) > walkMarkerDistance) {
@@ -140,7 +151,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     var offTrackRot = Math.abs(walkingDirection.angleTo(pos) / Math.PI);
 
     // Check how far away we are from the center relative to bounds size
-    var offTrackPos = pos.length() / boundsRadius;
+    var offTrackPos = distanceToCenter(pos) / boundsRadius;
 
     // Check how much we are looking forward and down
     var viewVector = new THREE.Vector3(0, 0, -1);
@@ -189,6 +200,8 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       if(boundMarkers.length < 3) {
         boundMarkers.push(engine.body.head.position.clone().setY(0));
         if(boundMarkers.length == 3) {
+          self.bounds = getBounds();
+          self.boundingBox = getBoundingBox();
           // Tell desktop we're done
           receiver.playspaceFinished();
           // VRControls need our bounding box
