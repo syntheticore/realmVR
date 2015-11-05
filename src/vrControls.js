@@ -4,17 +4,20 @@ var THREE = require('three');
 var Receiver = require('./receiver.js');
 var SpaceManager = require('./spaceManager.js')
 
-var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDistance) {
+var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid) {
   var self = this;
   _.eventHandling(self);
 
   self.enabled = true;
 
+  self.deviceHeadDistance = 1;
+
   var lastLeftActive = false;
   var lastRightActive = false;
 
   var receiver = new Receiver(uuid);
-  var manager = new SpaceManager(receiver, deviceHeadDistance);
+  var manager = new SpaceManager(receiver, self.deviceHeadDistance);
+  var raycaster = new THREE.Raycaster();
 
   manager.once('playspaceFinished', function() {
     self.boundingBox = manager.getBoundingBox();
@@ -24,6 +27,11 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
   camera.rotation.reorder('YXZ');
   handLeft.rotation.reorder('YXZ');
   handRight.rotation.reorder('YXZ');
+  reticle.rotation.reorder('YXZ');
+
+  var reticleDepth = 0;
+  var counter = 0;
+  var hit;
 
   receiver.on('configuration', function(config) {
     self.emit('configuration', [config]);
@@ -42,7 +50,7 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
     var body = manager.update(delta);
     
     // Calculate view vector
-    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance / 2);
+    var viewVector = new THREE.Vector3(0, 0, -self.deviceHeadDistance / 2);
     viewVector.applyQuaternion(body.head.orientation);
     
     var upVector = new THREE.Vector3(0, 1, 0);
@@ -56,9 +64,24 @@ var RealmVRControls = function(camera, handLeft, handRight, uuid, deviceHeadDist
     handLeft.position.copy(body.left.position);
     handRight.position.copy(body.right.position);
     
-    // Orient hand towards camera
+    // Orient hands towards camera
     handLeft.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
     handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+
+    // Position reticle
+    if(counter++ % 60 == 0) {
+      raycaster.setFromCamera(new THREE.Vector2(), camera);
+      hit = raycaster.intersectObjects(scene.children)[0];
+    }
+    if(hit) {
+      if(hit.distance < reticleDepth) {
+        reticleDepth = reticleDepth * 0.9 + hit.distance * 0.1;
+      } else {
+        reticleDepth = reticleDepth * 0.99 + hit.distance * 0.01;
+      }
+    }
+    reticle.position.copy(camera.position).add(viewVector.normalize().multiplyScalar(reticleDepth * 0.9));
+    reticle.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Move bounding box
     if(self.boundingBox) {
