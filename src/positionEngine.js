@@ -38,9 +38,9 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  leftPredictor.feed(new THREE.Vector3(15, 60, 15));
-  rightPredictor.feed(new THREE.Vector3(-15, 60, 15));
-  headPredictor.feed(new THREE.Vector3(30, 90, 60));
+  leftPredictor.feed(new THREE.Vector3(15, 110, 70));
+  rightPredictor.feed(new THREE.Vector3(-15, 110, 70));
+  headPredictor.feed(new THREE.Vector3(0, 150, 100));
 
   var leftActive = false;
   var rightActive = false;
@@ -97,7 +97,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var getDeviceOrientation = function() {
     return {
       alpha: alphaPredictor.predict() || 0,
-      beta: betaPredictor.predict()   || 100,
+      beta: betaPredictor.predict()   || 80,
       gamma: gammaPredictor.predict() || 0,
       heading: lastHeading
     };

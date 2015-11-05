@@ -15,8 +15,8 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
   var maxBoundsDistance = 20;
 
   var world = {
-    position: new THREE.Vector3(-85, 0, 10),
-    rotation: -90
+    position: new THREE.Vector3(-120, 0, 100),
+    rotation: 0
   };
 
   var boundMarkers = [];
@@ -53,9 +53,9 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
   var getBounds = function() {
     var bounds = {
       front: 0, //XXX Calculate front
-      back:  boundMarkers[0].z,
-      right: boundMarkers[1].x,
-      left:  boundMarkers[2].x
+      back:  200,  //boundMarkers[0].z,
+      right: 100,  //boundMarkers[1].x,
+      left:  -100  //boundMarkers[2].x
     };
     return bounds;
   };

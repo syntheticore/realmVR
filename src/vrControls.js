@@ -69,7 +69,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
     handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Position reticle
-    if(counter++ % 60 == 0) {
+    if(counter++ % 30 == 0) {
       raycaster.setFromCamera(new THREE.Vector2(), camera);
       hit = raycaster.intersectObjects(scene.children)[0];
     }
@@ -79,8 +79,9 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
       } else {
         reticleDepth = reticleDepth * 0.99 + hit.distance * 0.01;
       }
+      reticleDepth = Math.min(reticleDepth, 500);
     }
-    reticle.position.copy(camera.position).add(viewVector.normalize().multiplyScalar(reticleDepth * 0.9));
+    reticle.position.copy(camera.position).add(viewVector.normalize().multiplyScalar(reticleDepth * 0.8));
     reticle.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Move bounding box
