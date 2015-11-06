@@ -81,7 +81,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
       }
       reticleDepth = Math.min(reticleDepth, 500);
     }
-    reticle.position.copy(camera.position).add(viewVector.normalize().multiplyScalar(reticleDepth * 0.8));
+    reticle.position.copy(camera.position).add(viewVector.normalize().multiplyScalar(reticleDepth * 0.95));
     reticle.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Move bounding box

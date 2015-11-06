@@ -394,7 +394,7 @@ var ColorTracker = function(cb, width, height) {
         _.waitFor(function() {
           return source.getData();
         }, function() {
-          calibrate();
+          // calibrate();
           cb();
         });
       });
