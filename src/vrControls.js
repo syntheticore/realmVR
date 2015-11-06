@@ -29,7 +29,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
   handRight.rotation.reorder('YXZ');
   reticle.rotation.reorder('YXZ');
 
-  var reticleDepth = 0;
+  var reticleDepth = 400;
   var counter = 0;
   var hit;
 
