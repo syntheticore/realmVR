@@ -8,10 +8,10 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
 
   var convergenceHeadPos = 0.002;
   var convergenceHeadVelocity = 1.5;
-  var convergenceHeading = 0.01;
+  var convergenceHeading = 0.0001;
   var convergenceHands = 0.1;
 
-  var maxVelocity = 50;
+  var maxVelocity = 30;
 
   var useMagnetSwitch = false;
   var magnetThreshold = 30;
@@ -284,9 +284,9 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     positionCorrection.multiplyScalar(convergenceHeadPos * delta);
 
     // Integrate velocity to yield device position
-    devicePosition.x += velocity.x * delta / 7 + positionCorrection.x;
-    devicePosition.y += velocity.y * delta / 7 + positionCorrection.y;
-    devicePosition.z += velocity.z * delta / 7 + positionCorrection.z;
+    devicePosition.x += velocity.x * delta / 4 + positionCorrection.x;
+    devicePosition.y += velocity.y * delta / 4 + positionCorrection.y;
+    devicePosition.z += velocity.z * delta / 4 + positionCorrection.z;
 
     // Derive head position from device position by following inverse view vector
     var viewVector = getViewVector();
