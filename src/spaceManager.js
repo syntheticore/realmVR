@@ -24,11 +24,13 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var engine = new PositionEngine(receiver, deviceHeadDistance);
 
-  // Keyboard controls
+  // Keyboard & mouse controls
+  var mouseDown = false;
   var movingForward = false;
   var movingBackward = false;
   var movingLeft = false;
   var movingRight = false;
+  var lastMouseX = 0;
 
   _.on(window, 'keydown', function(e) {
     if(!useKeyboard) return;
@@ -46,14 +48,25 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     if(e.keyCode == 68) movingRight = false;
   });
 
+  _.on(window, 'mousedown', function(e) {
+    mouseDown = true;
+    lastMouseX = e.clientX;
+  });
+
+  _.on(window, 'mouseup', function(e) {
+    mouseDown = false;
+  });
+
   _.on(window, 'mousemove', function(e) {
-    if(!useKeyboard) return;
-    world.rotation = e.clientX;
+    if(!useKeyboard || !mouseDown) return;
+    var deltaX = e.clientX - lastMouseX;
+    lastMouseX = e.clientX;
+    world.rotation += deltaX;
   });
 
   var world2game = function(pos, worldRot) {
-    //XXX Rotate around player, not origin
-    return pos.applyQuaternion(worldRot).sub(world.position);
+    var playerPos = engine.body.right.position;
+    return pos.sub(playerPos).applyQuaternion(worldRot).add(playerPos).sub(world.position);
   };
 
   // Get player pose in game space
