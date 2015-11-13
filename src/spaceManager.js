@@ -13,7 +13,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var maxBoundsDistance = 20;
 
-  var useKeyboard = false;
+  var useKeyboard = true;
 
   var boundMarkers = [];
 
@@ -46,7 +46,13 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     if(e.keyCode == 68) movingRight = false;
   });
 
+  _.on(window, 'mousemove', function(e) {
+    if(!useKeyboard) return;
+    world.rotation = e.clientX;
+  });
+
   var world2game = function(pos, worldRot) {
+    //XXX Rotate around player, not origin
     return pos.applyQuaternion(worldRot).sub(world.position);
   };
 

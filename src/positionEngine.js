@@ -18,7 +18,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
 
   var doCompassCorrection = true;
 
-  var useKeyboard = true;
+  var useKeyboard = false;
 
   self.body = {
     left: {
@@ -35,7 +35,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     }
   };
 
-  // Keyboard controls
+  // Keyboard & mouse controls
   var movingForward = false;
   var movingBackward = false;
   var movingLeft = false;
@@ -55,6 +55,28 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     if(e.keyCode == 65) movingLeft = false;
     if(e.keyCode == 83) movingBackward = false;
     if(e.keyCode == 68) movingRight = false;
+  });
+
+  var mouseDown = false;
+  var lastMouseX = 0;
+  var mouseRotationX = 0
+  var mouseOrientation = Utils.quaternionFromHeading(0);
+
+  _.on(window, 'mousedown', function(e) {
+    mouseDown = true;
+    lastMouseX = e.clientX;
+  });
+
+  _.on(window, 'mouseup', function(e) {
+    mouseDown = false;
+  });
+
+  _.on(window, 'mousemove', function(e) {
+    if(!useKeyboard || !mouseDown) return;
+    var deltaX = e.clientX - lastMouseX;
+    lastMouseX = e.clientX;
+    mouseRotationX += deltaX / 2;
+    mouseOrientation = Utils.quaternionFromHeading(-mouseRotationX);
   });
   
   // Receive and predict absolute positions from tracker
@@ -250,7 +272,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     var headingDriftCorrection = Utils.quaternionFromHeading(smoothDrift);
 
     // Correct heading to match tracker space
-    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(orientation);
+    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(mouseOrientation).multiply(orientation);
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
