@@ -69,7 +69,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
     handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     // Position reticle
-    if(counter++ % 30 == 0) {
+    if(counter++ % 30 == 0 && false) {
       raycaster.setFromCamera(new THREE.Vector2(), camera);
       hit = raycaster.intersectObjects(scene.children)[0];
     }

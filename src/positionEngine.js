@@ -16,7 +16,9 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var useMagnetSwitch = false;
   var magnetThreshold = 30;
 
-  var doCompassCorrection = false;
+  var doCompassCorrection = true;
+
+  var useKeyboard = true;
 
   self.body = {
     left: {
@@ -32,6 +34,28 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
       orientation: new THREE.Quaternion()
     }
   };
+
+  // Keyboard controls
+  var movingForward = false;
+  var movingBackward = false;
+  var movingLeft = false;
+  var movingRight = false;
+
+  _.on(window, 'keydown', function(e) {
+    if(!useKeyboard) return;
+    if(e.keyCode == 87) movingForward = true;
+    if(e.keyCode == 65) movingLeft = true;
+    if(e.keyCode == 83) movingBackward = true;
+    if(e.keyCode == 68) movingRight = true;
+  });
+
+  _.on(window, 'keyup', function(e) {
+    if(!useKeyboard) return;
+    if(e.keyCode == 87) movingForward = false;
+    if(e.keyCode == 65) movingLeft = false;
+    if(e.keyCode == 83) movingBackward = false;
+    if(e.keyCode == 68) movingRight = false;
+  });
   
   // Receive and predict absolute positions from tracker
   var leftPredictor = new VectorPredictor();
@@ -260,6 +284,20 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
       position: positionCorrection,
       rotation: smoothDrift
     };
+
+    // Keyboard controls
+    if(movingForward || movingBackward || movingLeft || movingRight) {
+      if(movingForward || movingBackward) {
+        var factor = (movingBackward ? -1 : 1) * delta / 3;
+        devicePosition.add(viewVector.setY(0).normalize().multiplyScalar(factor));
+      }
+      if(movingLeft || movingRight) {
+        var rightVector = new THREE.Vector3(1, 0, 0);
+        var factor = (movingRight ? 1 : -1) * delta / 3;
+        rightVector.applyQuaternion(self.body.head.orientation).setY(0).normalize().multiplyScalar(factor);
+        devicePosition.add(rightVector);
+      }
+    }
 
     return corrections;
   };

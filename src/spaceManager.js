@@ -13,14 +13,38 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var maxBoundsDistance = 20;
 
-  var world = {
-    position: new THREE.Vector3(-120, 0, 100),
-    rotation: 0
-  };
+  var useKeyboard = false;
 
   var boundMarkers = [];
 
+  var world = {
+    position: new THREE.Vector3(-320, 0, 180),
+    rotation: 0
+  };
+
   var engine = new PositionEngine(receiver, deviceHeadDistance);
+
+  // Keyboard controls
+  var movingForward = false;
+  var movingBackward = false;
+  var movingLeft = false;
+  var movingRight = false;
+
+  _.on(window, 'keydown', function(e) {
+    if(!useKeyboard) return;
+    if(e.keyCode == 87) movingForward = true;
+    if(e.keyCode == 65) movingLeft = true;
+    if(e.keyCode == 83) movingBackward = true;
+    if(e.keyCode == 68) movingRight = true;
+  });
+
+  _.on(window, 'keyup', function(e) {
+    if(!useKeyboard) return;
+    if(e.keyCode == 87) movingForward = false;
+    if(e.keyCode == 65) movingLeft = false;
+    if(e.keyCode == 83) movingBackward = false;
+    if(e.keyCode == 68) movingRight = false;
+  });
 
   var world2game = function(pos, worldRot) {
     return pos.applyQuaternion(worldRot).sub(world.position);
@@ -160,9 +184,18 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     var upLooking = 1 - Math.abs(viewVector.angleTo(up) / Math.PI);
     var frontFacing = 1 - 2 * Math.abs(0.5 - upLooking);
     
-    if(upLooking < 0.1) {
+    if(movingForward || movingBackward || movingLeft || movingRight || upLooking < 0.1) {
       var worldRot = Utils.quaternionFromHeading(-world.rotation);
-      world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(0.5).applyQuaternion(worldRot));
+      if(movingForward || movingBackward || upLooking < 0.1) {
+        var factor = (movingBackward ? -1 : 1) * delta / 3;
+        world.position.sub(viewVector.clone().setY(0).normalize().multiplyScalar(factor).applyQuaternion(worldRot));
+      }
+      if(movingLeft || movingRight) {
+        var rightVector = new THREE.Vector3(1, 0, 0);
+        var factor = (movingRight ? 1 : -1) * delta / 3;
+        rightVector.applyQuaternion(engine.body.head.orientation).setY(0).normalize().multiplyScalar(factor);
+        world.position.sub(rightVector.applyQuaternion(worldRot));
+      }
     }
 
     return getGameBody();
