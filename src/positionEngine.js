@@ -12,6 +12,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var convergenceHands = 0.1;
 
   var maxVelocity = 30;
+  var maxBrakeDistance = 100;
 
   var useMagnetSwitch = false;
   var magnetThreshold = 30;
@@ -159,9 +160,10 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     // Convert from device space to world space
     acceleration.applyQuaternion(self.body.head.orientation);
     // Integrate acceleration over time to yield velocity
-    velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval);
-    velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval);
-    velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval);
+    var bodyAbs = getTrackedPose();
+    velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval, bodyAbs);
+    velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval, bodyAbs);
+    velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval, bodyAbs);
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
     shakiness = shakiness * 0.5 + 
                 (
@@ -170,14 +172,15 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
                 ) * 0.5;
   });
 
-  var dampenAcceleration = function(acceleration, velocity, interval) {
+  var dampenAcceleration = function(acceleration, velocity, interval, bodyAbs) {
     // Correct more aggressively the closer we get to maxVelocity
-    var correctionFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
+    var dampFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
+    var brakeFactor = Math.min(1, Math.abs(bodyAbs.head.position.distanceTo(self.body.head.position)) / maxBrakeDistance);
     // Strengthen naturally opposing movements, weaken movements that would further accelerate us
     var opposing = ((acceleration >= 0 && velocity < 0) || (acceleration < 0 && velocity >= 0));
-    var dampened = acceleration * (opposing ? (1 + correctionFactor) : (1 - correctionFactor));
+    var dampened = acceleration * (opposing ? (1 + dampFactor) : (1 - dampFactor));
     // Slowly converge towards zero to cancel remaining velocity when standing still
-    var braking = dampened - (velocity * interval * (1 + Math.abs(acceleration)) * convergenceHeadVelocity);
+    var braking = dampened - (velocity * interval * (1 + Math.abs(acceleration)) * convergenceHeadVelocity * brakeFactor);
     return braking;
   };
 
