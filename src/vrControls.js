@@ -10,7 +10,7 @@ var RealmVRControls = function(scene, camera, handLeft, handRight, reticle, uuid
 
   self.enabled = true;
 
-  self.deviceHeadDistance = 1;
+  self.deviceHeadDistance = 4;
 
   var lastLeftActive = false;
   var lastRightActive = false;
