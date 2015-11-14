@@ -13,7 +13,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var maxBoundsDistance = 20;
 
-  var useKeyboard = true;
+  var useKeyboard = false;
 
   var boundMarkers = [];
 
@@ -251,7 +251,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       // Collect first three locations
       if(boundMarkers.length < 3) {
         boundMarkers.push(engine.body.head.position.clone().setY(0));
-        if(boundMarkers.length == 3) {
+        if(boundMarkers.length) { // == 3) {
           self.bounds = getBounds();
           self.boundingBox = getBoundingBox();
           // Tell desktop we're done

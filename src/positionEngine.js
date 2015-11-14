@@ -19,7 +19,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
 
   var doCompassCorrection = true;
 
-  var useKeyboard = false;
+  var useKeyboard = true;
 
   self.body = {
     left: {
@@ -85,8 +85,10 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  leftPredictor.feed(new THREE.Vector3(15, 90, 70));
-  rightPredictor.feed(new THREE.Vector3(-15, 90, 70));
+  // leftPredictor.feed(new THREE.Vector3(15, 170, 70));
+  // rightPredictor.feed(new THREE.Vector3(-15, 170, 70));
+  leftPredictor.feed(new THREE.Vector3(-30, 170, 115));
+  rightPredictor.feed(new THREE.Vector3(-30, 170, 85));
   headPredictor.feed(new THREE.Vector3(0, 170, 100));
 
   var leftActive = false;
