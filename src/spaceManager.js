@@ -13,7 +13,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var maxBoundsDistance = 20;
 
-  var useKeyboard = false;
+  var useKeyboard = true;
 
   var boundMarkers = [];
 
@@ -119,6 +119,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       wireframeLinewidth: 1
     }));
     cube.rotation.reorder('YXZ');
+    cube.renderOrder = 2;
     return cube;
   };
 

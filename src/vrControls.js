@@ -15,8 +15,6 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   var lastLeftActive = false;
   var lastRightActive = false;
 
-  var debug = true;
-
   var receiver = new Receiver(uuid);
   var manager = new SpaceManager(receiver, self.deviceHeadDistance);
   var raycaster = new THREE.Raycaster();
@@ -40,7 +38,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   });
 
   // Hand manipulators
-  if(debug) {
+  if(DEBUG) {
     var manipulatorL = new THREE.TransformControls(camera, domElement);
     var manipulatorR = new THREE.TransformControls(camera, domElement);
     manipulatorL.attach(handLeft);
@@ -73,10 +71,10 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     camera.quaternion.copy(body.head.orientation);
 
     // Update hand postitions
-    if(!debug || (handLeft.position.y == 0 && body.left.position.y > 160)) {
+    if(!DEBUG || (handLeft.position.y == 0 && body.left.position.y > 160)) {
       handLeft.position.copy(body.left.position);
       handRight.position.copy(body.right.position);
-      if(debug) {
+      if(DEBUG) {
         manipulatorL.update();
         manipulatorR.update();
       }
