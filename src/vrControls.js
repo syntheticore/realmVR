@@ -88,9 +88,9 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
       handLeft.position.copy(body.left.position);
       handRight.position.copy(body.right.position);
     }
-    
-    // Override using manipulators in debug mode
+
     if(DEBUG) {
+    // Override hand positions using manipulators in debug mode
       manipulatorL.update();
       manipulatorR.update();
       // Copy new values back to player pose 
