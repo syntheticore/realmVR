@@ -1,10 +1,12 @@
 var _ = require('eakwell');
+var THREE = require('three');
 
 var realmVR = {
   Tracker: require('./tracker.js'),
   PositionEngine: require('./positionEngine.js'),
   SpaceManager: require('./spaceManager.js'),
   RealmVRControls: require('./vrControls.js'),
+  THREE: THREE,
 
   // Called from [server] to allow for web socket
   // communication between desktop and mobile devices
