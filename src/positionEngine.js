@@ -235,7 +235,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   };
 
   // Cardboard 2.0 switch activation
-  window.addEventListener('click', function() {
+  _.on(window, 'touchstart click', function() {
     onHeadsetButtonPressed();
   }, false);
 
