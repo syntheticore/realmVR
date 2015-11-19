@@ -45,6 +45,16 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     manipulatorR.attach(handRight);
     scene.add(manipulatorL);
     scene.add(manipulatorR);
+
+    _.on(window, 'keydown', function(e) {
+      if(e.keyCode == 88) self.emit('trigger', ['left']);  // y
+      if(e.keyCode == 89) self.emit('trigger', ['right']); // x
+    });
+
+    _.on(window, 'keyup', function(e) {
+      if(e.keyCode == 88) self.emit('triggerEnd', ['left']);
+      if(e.keyCode == 89) self.emit('triggerEnd', ['right']);
+    });
   }
 
   self.connect = function() {
@@ -70,7 +80,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     camera.position.copy(body.head.position).add(viewVector);
     camera.quaternion.copy(body.head.orientation);
 
-    // Update hand postitions
+    // Update hand positions
     if(!DEBUG || (handLeft.position.y == 0 && body.left.position.y > 160)) {
       handLeft.position.copy(body.left.position);
       handRight.position.copy(body.right.position);
@@ -108,24 +118,25 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
 
     // Watch hand triggers for changes
     if(body.left.active && !lastLeftActive) {
-      self.emit('triggerLeft');
       self.emit('trigger', ['left']);
     } else if(!body.left.active && lastLeftActive) {
-      self.emit('triggerEndLeft');
       self.emit('triggerEnd', ['left']);
     }
     if(body.right.active && !lastRightActive) {
-      self.emit('triggerRight');
       self.emit('trigger', ['right']);
     } else if(!body.right.active && lastRightActive) {
-      self.emit('triggerEndRight');
       self.emit('triggerEnd', ['right']);
     }
     lastLeftActive = body.left.active;
     lastRightActive = body.right.active;
 
     return {
-      position: body.head.position,
+      head: body.head,
+      hands: {
+        left: body.left,
+        right: body.right
+      },
+      origin: body.origin,
       viewVector: viewVector.normalize(),
       upVector: upVector
     }
