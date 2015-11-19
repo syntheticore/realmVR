@@ -24,6 +24,10 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
 
   var engine = new PositionEngine(receiver, deviceHeadDistance);
 
+  // Proxy hand trigger events
+  self.bubble(engine, 'trigger');
+  self.bubble(engine, 'triggerEnd');
+
   // Keyboard & mouse controls
   var mouseDown = false;
   var movingForward = false;
@@ -79,10 +83,12 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       },
       left: {
         position: world2game(engine.body.left.position.clone(), worldRot),
+        velocity: engine.body.left.velocity,
         active: engine.body.left.active
       },
       right: {
         position: world2game(engine.body.right.position.clone(), worldRot),
+        velocity: engine.body.right.velocity,
         active: engine.body.right.active
       },
       origin: {

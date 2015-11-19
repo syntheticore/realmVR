@@ -12,13 +12,19 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
 
   self.deviceHeadDistance = 4;
 
-  var lastLeftActive = false;
-  var lastRightActive = false;
+  var reticleDepth = 400;
+  var counter = 0;
+  var hit;
 
   var receiver = new Receiver(uuid);
   var manager = new SpaceManager(receiver, self.deviceHeadDistance);
   var raycaster = new THREE.Raycaster();
 
+  // Proxy hand trigger events
+  self.bubble(manager, 'trigger');
+  self.bubble(manager, 'triggerEnd');
+
+  // Provide bounding box once available
   manager.once('playspaceFinished', function() {
     self.boundingBox = manager.boundingBox;
     self.emit('playspaceFinished');
@@ -28,10 +34,6 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   handLeft.rotation.reorder('YXZ');
   handRight.rotation.reorder('YXZ');
   reticle.rotation.reorder('YXZ');
-
-  var reticleDepth = 400;
-  var counter = 0;
-  var hit;
 
   receiver.on('configuration', function(config) {
     self.emit('configuration', [config]);
@@ -46,6 +48,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     scene.add(manipulatorL);
     scene.add(manipulatorR);
 
+    // Fake trigger events
     _.on(window, 'keydown', function(e) {
       if(e.keyCode == 88) self.emit('trigger', ['left']);  // y
       if(e.keyCode == 89) self.emit('trigger', ['right']); // x
@@ -84,10 +87,15 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     if(!DEBUG || (handLeft.position.y == 0 && body.left.position.y > 160)) {
       handLeft.position.copy(body.left.position);
       handRight.position.copy(body.right.position);
-      if(DEBUG) {
-        manipulatorL.update();
-        manipulatorR.update();
-      }
+    }
+    
+    // Override using manipulators in debug mode
+    if(DEBUG) {
+      manipulatorL.update();
+      manipulatorR.update();
+      // Copy new values back to player pose 
+      body.left.position.copy(handLeft.position);
+      body.right.position.copy(handRight.position);
     }
     
     // Orient hands towards camera
@@ -115,20 +123,6 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
       self.boundingBox.position.copy(body.origin.position);
       self.boundingBox.quaternion.copy(body.origin.orientation);
     }
-
-    // Watch hand triggers for changes
-    if(body.left.active && !lastLeftActive) {
-      self.emit('trigger', ['left']);
-    } else if(!body.left.active && lastLeftActive) {
-      self.emit('triggerEnd', ['left']);
-    }
-    if(body.right.active && !lastRightActive) {
-      self.emit('trigger', ['right']);
-    } else if(!body.right.active && lastRightActive) {
-      self.emit('triggerEnd', ['right']);
-    }
-    lastLeftActive = body.left.active;
-    lastRightActive = body.right.active;
 
     return {
       head: body.head,

@@ -5,6 +5,7 @@ var Utils = require('./utils.js');
 
 var PositionEngine = function(receiver, deviceHeadDistance) {
   var self = this;
+  _.eventHandling(self);
 
   var convergenceHeadPos = 0.002;
   var convergenceHeadVelocity = 1.5;
@@ -24,10 +25,12 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   self.body = {
     left: {
       position: new THREE.Vector3(0, 0, 0),
+      velocity: new THREE.Vector3(0, 0, 0),
       active: false
     },
     right: {
       position: new THREE.Vector3(0, 0, 0),
+      velocity: new THREE.Vector3(0, 0, 0),
       active: false
     },
     head: {
@@ -298,12 +301,32 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     self.body.head.position.copy(devicePosition).sub(viewVector);
 
     // Converge hand positions to position from tracker
+    var oldLeft = self.body.left.position.clone();
+    var oldRight = self.body.right.position.clone();
     self.body.left.position.lerp(bodyAbs.left.position, convergenceHands);
     self.body.right.position.lerp(bodyAbs.right.position, convergenceHands);
 
+    // Update hand velocities
+    self.body.left.velocity.copy(self.body.left.position).sub(oldLeft);
+    self.body.right.velocity.copy(self.body.right.position).sub(oldRight);
+
     // Update hand triggers
+    var lastLeftActive = self.body.left.active;
+    var lastRightActive = self.body.right.active;
     self.body.left.active = bodyAbs.left.active;
     self.body.right.active = bodyAbs.right.active;
+
+    // Trigger events
+    if(self.body.left.active && !lastLeftActive) {
+      self.emit('trigger', ['left']);
+    } else if(!self.body.left.active && lastLeftActive) {
+      self.emit('triggerEnd', ['left']);
+    }
+    if(self.body.right.active && !lastRightActive) {
+      self.emit('trigger', ['right']);
+    } else if(!self.body.right.active && lastRightActive) {
+      self.emit('triggerEnd', ['right']);
+    }
 
     // Collect potentially disorienting corrections so they can optionally be undone during rendering
     var corrections = {
@@ -344,10 +367,17 @@ var Predictor = function(min, max, disable) {
     lastNow = now;
   };
 
+  this.changeSinceFeed = function() {
+    if(lastDiff == undefined) return;
+    var progress = performance.now() - lastNow;
+    return lastDiff * progress;
+  };
+
   this.predict = function() {
     if(lastDiff != undefined && !disable) {
-      var progress = performance.now() - lastNow;
-      var value = lastValue + (lastDiff * progress);
+      // Predict
+      var value = lastValue + this.changeSinceFeed();
+      // Clamp to bounds
       if(_.hasValue(max) && value >= max) {
         value = min + (value - max);
       } else if(_.hasValue(min) && value <= min) {
@@ -369,6 +399,10 @@ var VectorPredictor = function() {
     xPredictor.feed(vector.x);
     yPredictor.feed(vector.y);
     zPredictor.feed(vector.z);
+  };
+
+  this.changeSinceFeed = function() {
+    return new THREE.Vector3(xPredictor.changeSinceFeed() || 0, yPredictor.changeSinceFeed() || 0, zPredictor.changeSinceFeed() || 0);
   };
 
   this.predict = function() {
