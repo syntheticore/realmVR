@@ -258,20 +258,24 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     // Let the player define the bounds of the play space
     // by pressing the headset button in three different locations
     var boundsHandler = _.on(window, 'headsetButtonPressed', function() {
-      // Collect first three locations
-      if(boundMarkers.length < 3) {
-        boundMarkers.push(engine.body.head.position.clone().setY(0));
-        if(boundMarkers.length) { // == 3) {
-          self.bounds = getBounds();
-          self.boundingBox = getBoundingBox();
-          // Tell desktop we're done
-          receiver.playspaceFinished();
-          // VRControls need our bounding box
-          self.emit('playspaceFinished');
-          _.off(window, 'headsetButtonPressed', boundsHandler);
-        }
-      }
+      self.collectBoundsSample();
+      _.off(window, 'headsetButtonPressed', boundsHandler);
     }, false);
+  };
+
+  self.collectBoundsSample = function() {
+    // Collect first three locations
+    if(boundMarkers.length < 3) {
+      boundMarkers.push(engine.body.head.position.clone().setY(0));
+      if(boundMarkers.length) { // == 3) {
+        self.bounds = getBounds();
+        self.boundingBox = getBoundingBox();
+        // Tell desktop we're done
+        receiver.playspaceFinished();
+        // VRControls need our bounding box
+        self.emit('playspaceFinished');
+      }
+    }
   };
 
   // Place the player in an arbitrary position in the game world

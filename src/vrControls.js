@@ -19,16 +19,16 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   var body;
 
   var receiver = new Receiver(uuid);
-  var manager = new SpaceManager(receiver, self.deviceHeadDistance);
+  self.spaceManager = new SpaceManager(receiver, self.deviceHeadDistance);
   var raycaster = new THREE.Raycaster();
 
   // Proxy hand trigger events
-  self.bubble(manager, 'trigger');
-  self.bubble(manager, 'triggerEnd');
+  self.bubble(self.spaceManager, 'trigger');
+  self.bubble(self.spaceManager, 'triggerEnd');
 
   // Provide bounding box once available
-  manager.once('playspaceFinished', function() {
-    self.boundingBox = manager.boundingBox;
+  self.spaceManager.once('playspaceFinished', function() {
+    self.boundingBox = self.spaceManager.boundingBox;
     self.emit('playspaceFinished');
   });
 
@@ -83,7 +83,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   };
 
   self.calibrate = function() {
-    manager.calibrate();
+    self.spaceManager.calibrate();
   };
 
   self.setHandModels = function(left, right) {
@@ -95,7 +95,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
 
   self.update = function(delta) {
     if(!self.enabled) return;
-    body = manager.update(delta);
+    body = self.spaceManager.update(delta);
     
     // Calculate view vector
     var viewVector = new THREE.Vector3(0, 0, -self.deviceHeadDistance / 2);

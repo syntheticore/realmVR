@@ -6,6 +6,8 @@ var Receiver = function(uuid) {
   var self = this;
   _.eventHandling(self);
 
+  uuid = uuid || 1;
+
   // Register for updates from desktop
   var socket = io();
   socket.emit('register', uuid);
