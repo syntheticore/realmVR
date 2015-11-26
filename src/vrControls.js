@@ -19,7 +19,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   var body;
 
   var receiver = new Receiver(uuid);
-  self.spaceManager = new SpaceManager(receiver, self.deviceHeadDistance);
+  self.spaceManager = new SpaceManager(receiver, self.deviceHeadDistance, domElement);
   var raycaster = new THREE.Raycaster();
 
   // Proxy hand trigger events

@@ -4,7 +4,7 @@ var _ = require('eakwell');
 var PositionEngine = require('./positionEngine.js');
 var Utils = require('./utils.js');
 
-var SpaceManager = function(receiver, deviceHeadDistance) {
+var SpaceManager = function(receiver, deviceHeadDistance, container) {
   var self = this;
   _.eventHandling(self);
 
@@ -52,7 +52,7 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
     if(e.keyCode == 68) movingRight = false;
   });
 
-  _.on(window, 'mousedown', function(e) {
+  _.on(container || window, 'mousedown', function(e) {
     mouseDown = true;
     lastMouseX = e.clientX;
   });
