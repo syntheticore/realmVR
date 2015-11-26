@@ -83,11 +83,13 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       },
       left: {
         position: world2game(engine.body.left.position.clone(), worldRot),
+        orientation: worldRot,
         velocity: engine.body.left.velocity,
         active: engine.body.left.active
       },
       right: {
         position: world2game(engine.body.right.position.clone(), worldRot),
+        orientation: worldRot,
         velocity: engine.body.right.velocity,
         active: engine.body.right.active
       },
@@ -122,10 +124,11 @@ var SpaceManager = function(receiver, deviceHeadDistance) {
       transparent: true,
       opacity: 0.5,
       wireframe: true,
+      depthWrite: false,
       wireframeLinewidth: 1
     }));
     cube.rotation.reorder('YXZ');
-    cube.renderOrder = 2;
+    // cube.renderOrder = 2;
     return cube;
   };
 

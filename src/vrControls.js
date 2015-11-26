@@ -15,6 +15,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   var reticleDepth = 400;
   var counter = 0;
   var hit;
+  var reorientHands = true;
 
   var receiver = new Receiver(uuid);
   var manager = new SpaceManager(receiver, self.deviceHeadDistance);
@@ -68,6 +69,18 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     self.enabled = false;
   };
 
+  self.calibrate = function() {
+    manager.calibrate();
+  };
+
+  self.setHandModels = function(left, right) {
+    handLeft = left;
+    handRight = right;
+    manipulatorL.attach(handLeft);
+    manipulatorR.attach(handRight);
+    reorientHands = false;
+  };
+
   self.update = function(delta) {
     if(!self.enabled) return;
     var body = manager.update(delta);
@@ -97,10 +110,15 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
       body.left.position.copy(handLeft.position);
       body.right.position.copy(handRight.position);
     }
+
+    handLeft.quaternion.copy(body.left.orientation);
+    handRight.quaternion.copy(body.right.orientation);
     
     // Orient hands towards camera
-    handLeft.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
-    handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+    if(reorientHands) {
+      handLeft.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+      handRight.rotation.set(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+    }
 
     // Position reticle
     if(counter++ % 30 == 0 && false) {
@@ -134,10 +152,6 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
       viewVector: viewVector.normalize(),
       upVector: upVector
     }
-  };
-
-  self.calibrate = function() {
-    manager.calibrate();
   };
 
   self.dispose = function() {

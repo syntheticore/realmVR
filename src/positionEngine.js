@@ -90,8 +90,8 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
 
   // leftPredictor.feed(new THREE.Vector3(15, 170, 70));
   // rightPredictor.feed(new THREE.Vector3(-15, 170, 70));
-  leftPredictor.feed(new THREE.Vector3(-80, 170, 115));
-  rightPredictor.feed(new THREE.Vector3(-80, 170, 85));
+  leftPredictor.feed(new THREE.Vector3(-80, 120, 130));
+  rightPredictor.feed(new THREE.Vector3(-80, 120, 70));
   headPredictor.feed(new THREE.Vector3(0, 170, 100));
 
   var leftActive = false;
