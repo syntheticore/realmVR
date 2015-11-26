@@ -16,6 +16,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   var counter = 0;
   var hit;
   var reorientHands = true;
+  var body;
 
   var receiver = new Receiver(uuid);
   var manager = new SpaceManager(receiver, self.deviceHeadDistance);
@@ -40,14 +41,26 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     self.emit('configuration', [config]);
   });
 
+  var updateManipulators = function() {
+    manipulatorL.detach();
+    manipulatorR.detach();
+    _.defer(function() {
+      handLeft.position.copy(body.left.position);
+      handRight.position.copy(body.right.position);
+      manipulatorL.attach(handLeft);
+      manipulatorR.attach(handRight);
+    }, 1000);
+  };
+
   // Hand manipulators
   if(DEBUG) {
     var manipulatorL = new THREE.TransformControls(camera, domElement);
     var manipulatorR = new THREE.TransformControls(camera, domElement);
-    manipulatorL.attach(handLeft);
-    manipulatorR.attach(handRight);
+    // manipulatorL.attach(handLeft);
+    // manipulatorR.attach(handRight);
     scene.add(manipulatorL);
     scene.add(manipulatorR);
+    updateManipulators();
 
     // Fake trigger events
     _.on(window, 'keydown', function(e) {
@@ -76,14 +89,13 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   self.setHandModels = function(left, right) {
     handLeft = left;
     handRight = right;
-    manipulatorL.attach(handLeft);
-    manipulatorR.attach(handRight);
     reorientHands = false;
+    updateManipulators();
   };
 
   self.update = function(delta) {
     if(!self.enabled) return;
-    var body = manager.update(delta);
+    body = manager.update(delta);
     
     // Calculate view vector
     var viewVector = new THREE.Vector3(0, 0, -self.deviceHeadDistance / 2);
@@ -97,18 +109,12 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     camera.quaternion.copy(body.head.orientation);
 
     // Update hand positions
-    if(!DEBUG || (handLeft.position.y == 0 && body.left.position.y > 160)) {
-      handLeft.position.copy(body.left.position);
-      handRight.position.copy(body.right.position);
-    }
-
     if(DEBUG) {
-    // Override hand positions using manipulators in debug mode
       manipulatorL.update();
       manipulatorR.update();
-      // Copy new values back to player pose 
-      body.left.position.copy(handLeft.position);
-      body.right.position.copy(handRight.position);
+    } else {
+      handLeft.position.copy(body.left.position);
+      handRight.position.copy(body.right.position);
     }
 
     handLeft.quaternion.copy(body.left.orientation);
