@@ -69,7 +69,7 @@ var SpaceManager = function(receiver, deviceHeadDistance, container) {
   });
 
   var world2game = function(pos, worldRot) {
-    var playerPos = engine.body.right.position;
+    var playerPos = engine.body.head.position;
     return pos.sub(playerPos).applyQuaternion(worldRot).add(playerPos).sub(world.position);
   };
 

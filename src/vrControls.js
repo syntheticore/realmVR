@@ -56,8 +56,6 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
   if(DEBUG) {
     var manipulatorL = new THREE.TransformControls(camera, domElement);
     var manipulatorR = new THREE.TransformControls(camera, domElement);
-    // manipulatorL.attach(handLeft);
-    // manipulatorR.attach(handRight);
     scene.add(manipulatorL);
     scene.add(manipulatorR);
     updateManipulators();
@@ -103,6 +101,7 @@ var RealmVRControls = function(scene, camera, domElement, handLeft, handRight, r
     
     var upVector = new THREE.Vector3(0, 1, 0);
     upVector.applyQuaternion(body.head.orientation);
+    //XXX simply camera.up?
 
     // Move camera forward to make players head the center of rotation
     camera.position.copy(body.head.position).add(viewVector);
