@@ -24,8 +24,6 @@ var Device = function(uuid) {
   self.proxy(posEngine, 'trigger');
   self.proxy(posEngine, 'triggerEnd');
 
-  console.log("getState");
-
   self.getState = function(delta) {
     var state = posEngine.body;
     state.corrections = posEngine.update(delta);
@@ -37,7 +35,6 @@ var Device = function(uuid) {
       self.once('headsetButtonPressed', function() {
         posEngine.calibrate();
         receiver.calibrationFinished();
-        console.log("calibrated");
         ok();
       });
     });
