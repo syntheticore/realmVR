@@ -15,9 +15,6 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var maxVelocity = 30;
   var maxBrakeDistance = 100;
 
-  var useMagnetSwitch = false;
-  var magnetThreshold = 30;
-
   var doCompassCorrection = true;
 
   var useKeyboard = false;
@@ -38,50 +35,6 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
       orientation: new THREE.Quaternion()
     }
   };
-
-  // Keyboard & mouse controls
-  var movingForward = false;
-  var movingBackward = false;
-  var movingLeft = false;
-  var movingRight = false;
-
-  _.on(window, 'keydown', function(e) {
-    if(!useKeyboard) return;
-    if(e.keyCode == 87) movingForward = true;
-    if(e.keyCode == 65) movingLeft = true;
-    if(e.keyCode == 83) movingBackward = true;
-    if(e.keyCode == 68) movingRight = true;
-  });
-
-  _.on(window, 'keyup', function(e) {
-    if(!useKeyboard) return;
-    if(e.keyCode == 87) movingForward = false;
-    if(e.keyCode == 65) movingLeft = false;
-    if(e.keyCode == 83) movingBackward = false;
-    if(e.keyCode == 68) movingRight = false;
-  });
-
-  var mouseDown = false;
-  var lastMouseX = 0;
-  var mouseRotationX = 0
-  var mouseOrientation = Utils.quaternionFromHeading(0);
-
-  _.on(window, 'mousedown', function(e) {
-    mouseDown = true;
-    lastMouseX = e.clientX;
-  });
-
-  _.on(window, 'mouseup', function(e) {
-    mouseDown = false;
-  });
-
-  _.on(window, 'mousemove', function(e) {
-    if(!useKeyboard || !mouseDown) return;
-    var deltaX = e.clientX - lastMouseX;
-    lastMouseX = e.clientX;
-    mouseRotationX += deltaX / 2;
-    mouseOrientation = Utils.quaternionFromHeading(-mouseRotationX);
-  });
   
   // Receive and predict absolute positions from tracker
   var leftPredictor = new VectorPredictor();
@@ -229,24 +182,12 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     return viewVector;
   };
 
-  // Dispatch headset button event for others to enjoy
-  var onHeadsetButtonPressed = function() {
-    window.dispatchEvent(new Event('headsetButtonPressed'));
-  };
-
-  // Cardboard 2.0 switch activation
-  _.on(window, 'touchstart click', function() {
-    onHeadsetButtonPressed();
-  }, false);
-
   var devicePosition = new THREE.Vector3();
   var initialHeadingDiff = 0;
   var headingOffsetCorrection = Utils.quaternionFromHeading(0);
 
   var lastHeadingDiff = 0;
   var smoothDrift = 0;
-
-  var lastMagnetometerValue;
 
   // Call calibrate once while oriented towards camera
   self.calibrate = function() {
@@ -258,18 +199,10 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   };
 
   self.update = function(delta) {
+    delta = delta || 0;
     // Determine device orientation
     var deviceOrientation = getDeviceOrientation();
     var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
-
-    // Cardboard 1.0 switch activation
-    if(useMagnetSwitch && deviceOrientation.heading && !doCompassCorrection) {
-      var diff = Math.abs(deviceOrientation.heading - (lastMagnetometerValue || deviceOrientation.heading));
-      if(diff > magnetThreshold) {
-        onHeadsetButtonPressed();
-      }
-      lastMagnetometerValue = deviceOrientation.heading;
-    }
 
     // Correct accumulated heading drift using compass
     var headingDiff = getHeadingDiff();
@@ -280,7 +213,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
     var headingDriftCorrection = Utils.quaternionFromHeading(smoothDrift);
 
     // Correct heading to match tracker space
-    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(mouseOrientation).multiply(orientation);
+    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(orientation);
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
@@ -334,20 +267,6 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
       position: positionCorrection,
       rotation: smoothDrift
     };
-
-    // Keyboard controls
-    if(movingForward || movingBackward || movingLeft || movingRight) {
-      if(movingForward || movingBackward) {
-        var factor = (movingBackward ? -1 : 1) * delta / 3;
-        devicePosition.add(viewVector.setY(0).normalize().multiplyScalar(factor));
-      }
-      if(movingLeft || movingRight) {
-        var rightVector = new THREE.Vector3(1, 0, 0);
-        var factor = (movingRight ? 1 : -1) * delta / 3;
-        rightVector.applyQuaternion(self.body.head.orientation).setY(0).normalize().multiplyScalar(factor);
-        devicePosition.add(rightVector);
-      }
-    }
 
     return corrections;
   };

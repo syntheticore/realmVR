@@ -1,7 +1,7 @@
 var _ = require('eakwell');
 var THREE = require('three');
 
-var Posit = require('./posit.js').Posit;
+var Posit = require('./deps/posit.js').Posit;
 var VideoSource = require('./videoSource.js');
 
 var ColorTracker = function(cb, width, height) {
