@@ -1,7 +1,7 @@
 var _ = require('eakwell');
 
-var Receiver = require('./receiver.js');
-var PositionEngine = require('./positionEngine.js');
+var Client = require('./client.js');
+var Fusion = require('./fusion.js');
 
 var Device = function(uuid) {
   var self = this;
@@ -11,8 +11,8 @@ var Device = function(uuid) {
   self.eyeSeparation = 6.5;
   self.deviceHeadDistance = 12;
 
-  var receiver = new Receiver(uuid);
-  var posEngine = new PositionEngine(receiver, self.deviceHeadDistance);
+  var client = new Client(uuid);
+  var posEngine = new Fusion(client, self.deviceHeadDistance);
 
   // Cardboard 2.0 switch activation
   _.on(window, 'touchstart click', function() {
@@ -34,7 +34,7 @@ var Device = function(uuid) {
     return _.promise(function(ok) {
       self.once('headsetButtonPressed', function() {
         posEngine.calibrate();
-        receiver.calibrationFinished();
+        client.calibrationFinished();
         ok();
       });
     });

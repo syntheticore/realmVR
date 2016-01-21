@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/syntheticore/realmVR/issues"
   },
-  "main": "./src/realmVR.js",
+  "main": "./src/main.js",
   "dependencies": {
     "eakwell": "^0.2.0",
     "socket.io": "^1.3.7",

@@ -3,7 +3,7 @@ var _ = require('eakwell');
 
 var Utils = require('./utils.js');
 
-var PositionEngine = function(receiver, deviceHeadDistance) {
+var Fusion = function(client, deviceHeadDistance) {
   var self = this;
   _.eventHandling(self);
 
@@ -50,7 +50,7 @@ var PositionEngine = function(receiver, deviceHeadDistance) {
   var leftActive = false;
   var rightActive = false;
 
-  receiver.on('track', function(body) {
+  client.on('track', function(body) {
     leftPredictor.feed(body.left.position);
     rightPredictor.feed(body.right.position);
     headPredictor.feed(body.head.position);
@@ -347,4 +347,4 @@ var toQuaternion = (function() {
   };
 })();
 
-module.exports = PositionEngine;
+module.exports = Fusion;

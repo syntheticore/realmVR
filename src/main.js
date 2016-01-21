@@ -5,7 +5,7 @@ var THREE = require('./deps/threeAddons.js');
 
 var realmVR = {
   THREE: THREE,
-  Tracker: require('./tracker.js'),
+  Host: require('./host.js'),
   Device: require('./device.js'),
   Renderer: require('./renderer.js'),
   Utils: require('./utils.js'),
