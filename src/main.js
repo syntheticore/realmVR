@@ -30,9 +30,9 @@ var realmVR = {
         }
       });
       // Mobile device has finished calibration
-      socket.on('calibrationFinished', function(uuid){
+      socket.on('hmdPlaced', function(uuid){
         if(sessions[uuid]) {
-          sessions[uuid].host.emit('calibrationFinished');
+          sessions[uuid].host.emit('hmdPlaced');
           console.log("RealmVR: Device has calibrated for ID " + uuid);
         }
       });

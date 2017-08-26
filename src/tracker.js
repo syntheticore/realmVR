@@ -2,358 +2,203 @@ var _ = require('eakwell');
 var THREE = require('three');
 
 var Posit = require('./deps/posit.js').Posit;
+var Aruco = require('./deps/aruco.js');
 var VideoSource = require('./videoSource.js');
 
-var ColorTracker = function(cb, width, height) {
-  width = width || 640;
+var Tracker = function(cb, width, height) {
+  width = width || 640;
   height = height || 480;
 
-  var tracksPerSecond = 4;
+  var maxFPS = 20;
+  var markerSize = 48; // mm
 
   var source = new VideoSource(width, height);
+  var detector = new Aruco.Detector();
+  var posit = new Posit(markerSize, width);
 
-  // Register a named color with the tracker
-  // Colors that differ less than the given thresholds
-  // in HSL color space are considered for tracking
-  var registerColor = function(name, color, deviation) {
-    // var hsl = color.getHSL();
-    var pixelColor = new THREE.Color();
-    tracking.ColorTracker.registerColor(name, function(r, g, b) {
-      pixelColor.setRGB(r / 255, g / 255, b / 255);
-      return Math.abs(pixelColor.r - color.r) + Math.abs(pixelColor.g - color.g) +  Math.abs(pixelColor.b - color.b) / 3 < deviation.dh;
-      // var hslPixel = pixelColor.getHSL();
-      // return Math.abs(hslPixel.h - hsl.h) < deviation.dh &&
-      //        Math.abs(hslPixel.s - hsl.s) < deviation.ds &&
-      //        Math.abs(hslPixel.l - hsl.l) < deviation.dl;
-    });
-  };
+  var cameraPosition = new THREE.Vector3();
+  var cameraRotation = new THREE.Euler();
+  var worldScale = 1;
 
-  var deviations = {
-    apple: {dh: 0.15, ds: 0.3, dl: 0.2},
-    cardinal: {dh: 0.1, ds: 0.15, dl: 0.15},
-    magenta: {dh: 0.1, ds: 0.3, dl: 0.3},
-    cyan: {dh: 0.1, ds: 0.3, dl: 0.3}
-  };
+  var hmdWidth = 145;
+  var hmdHeight = 80;
 
-  var colorDefinitions = {
-    apple: new THREE.Color(137 / 255, 193 / 255, 114 / 255),
-    cardinal: new THREE.Color(115 / 255, 38  / 255, 93  / 255)
-  };
-
-  // Make custom colors known to tracker
-  var registerColors = function() {
-    _.each(colorDefinitions, function(color, name) {
-      registerColor(name, color, deviations[name]);
-    });
-  };
-
-  registerColors();
-
-  // Combinations of color that represent a single entity
-  var colorCombos = {
-    head: ['apple'],
-    // left: ['magenta', 'cyan'],
-    // right: ['cardinal', 'cyan'],
-    ground: ['cardinal']
-  };
-
-  var colors;
-  var tracker;
-
-  // Initialize tracker with all colors needed
-  var configureTracker = function(combos) {
-    colors = _.unique(_.flatten(_.values(combos)));
-    tracker = new tracking.ColorTracker(colors);
-    tracker.setMinDimension(10);
-    tracker.setMaxDimension(height * 2 / 3);
-    tracker.setMinGroupSize(50);
-  };
-
-  configureTracker(colorCombos);
-
-  // Return all blobs that match any of the used colors
-  var detectBlobs = function(imageData) {
-    var blobs;
-    // Register for track event
-    tracker.once('track', function(e) {
-      blobs = _.map(e.data, function(rect) {
-        // Convert to the simpler center + radius format
-        return {
-          color: rect.color,
-          position: {
-            x: rect.x + (rect.width / 2),
-            y: rect.y + (rect.height / 2)
-          },
-          radius: (rect.width + rect.height) / 4
-        };
-      });
-    });
-    // Emit track event
-    tracker.track(imageData.data, width, height);
-    return blobs;
+  var cubeDefs = {
+    testCube: {
+      top: {
+        id: 869,
+        baseRotation: new THREE.Quaternion()
+      },
+      bottom: {
+        id: 954,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
+      },
+      front: {
+        id: 136,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+      },
+      left: {
+        id: 402,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2)
+      },
+      right: {
+        id: 661,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)
+      }
+    },
+    hmd: {
+      frontLeft: {
+        id: 793,
+        baseRotation: new THREE.Quaternion(), // Front is base orientation (z-axis sticking out the HMD)
+        baseOffset: new THREE.Vector3(-markerSize / 2, 0, -hmdWidth / 2) // In marker space
+      },
+      frontRight: {
+        id: 370,
+        baseRotation: new THREE.Quaternion(),
+        baseOffset: new THREE.Vector3(markerSize / 2, 0, -hmdHeight / 2)
+      },
+      left: {
+        id: 868,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2),
+        baseOffset: new THREE.Vector3(0, 0, -hmdWidth / 2)
+      },
+      right: {
+        id: 9,
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2),
+        baseOffset: new THREE.Vector3(0, 0, -hmdWidth / 2)
+      }
+    }
   };
 
   // Draw rectangles around blobs
-  var drawBlobs = function(blobs, context) {
-    _.each(blobs, function(blob) {
-      context.strokeStyle = blob.color;
-      context.strokeRect(blob.position.x - blob.radius, blob.position.y - blob.radius, blob.radius * 2, blob.radius * 2);
-      context.font = '11px Helvetica';
-      context.fillStyle = "#fff";
-      context.fillText(blob.color, blob.position.x - blob.radius, blob.position.y + blob.radius + 11);
-      // context.fillText('x: ' + blob.position.x + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 22);
-      // context.fillText('y: ' + blob.position.y + 'px', blob.position.x - blob.radius, blob.position.y + blob.radius + 33);
+  var drawMarkers = function(markers, ctx) {
+    ctx.lineWidth = 2;
+    _.each(markers, function(marker) {
+      // Oulines
+      ctx.beginPath();
+      ctx.strokeStyle = 'red';
+      var lastCorner = marker.corners[3];
+      ctx.moveTo(lastCorner.x, lastCorner.y);
+      _.each(marker.corners, function(corner) {
+        ctx.lineTo(corner.x, corner.y);
+      });
+      ctx.stroke();
+      ctx.closePath();
+      // First corner
+      ctx.strokeStyle = 'green';
+      ctx.strokeRect(marker.corners[0].x - 2, marker.corners[0].y - 2, 4, 4);
+      // Id
+      ctx.font = '11px Helvetica';
+      ctx.fillStyle = "#fff";
+      ctx.fillText(marker.id, lastCorner.x, lastCorner.y);
     });
   };
 
-  // Combine adjacent blobs to form groups
-  var makeContactGroups = function(blobs) {
-    blobs = _.clone(blobs);
-    var groups = [];
-    var blob;
-    while(blob = blobs.pop()) {
-      // Find an existing group that this blob makes contact with
-      var group = _.find(groups, function(group) {
-        return _.any(group, function(blo) {
-          var mergeThreshold = 5; // px
-          // Check actual distance between blob borders
-          var dist = distance(blob.position, blo.position) - blob.radius - blo.radius;
-          return dist < mergeThreshold;
-        });
-      });
-      if(group) {
-        // Add to existing group
-        group.push(blob);
-      } else {
-        // Start new group
-        groups.push([blob]);
-      }
-    }
-    return groups;
+  var arucoVec2three = function(vec) {
+    return new THREE.Vector3(vec[0], vec[1], -vec[2]);
   };
 
-  // Return all color groups forming a
-  // four corner marker in the given image
-  var detectMarkers = function(blobs) {
-    // Group adjacent blobs to form markers
-    var groups = makeContactGroups(blobs);
-    // if(groups.length) console.log(groups);
-    // Find a matching group for every body part
-    var markers = _.map(colorCombos, function(combo) {
-      var group = _.find(groups, function(group) {
-        // Check if the set of used colors is the same
-        if(group.length != 4) return false;
-        var groupColors = _.unique(_.map(group, 'color'));
-        return !_.difference(groupColors, combo).length;
-      });
-      return group ? _.map(group, 'position') : null;
-    });
-    //XXX Order corners correctly
-    return markers;
+  var arucoRot2three = function(rot) {
+    return new THREE.Euler(
+      -Math.asin(-rot[1][2]),
+      -Math.atan2(rot[0][2], rot[2][2]),
+      Math.atan2(rot[1][0], rot[1][1])
+    );
+  };
+
+  var cam2world = function(vec) {
+    return vec.applyEuler(cameraRotation).add(cameraPosition).multiplyScalar(worldScale);
+  };
+
+  var invertEuler = function(euler) {
+    return euler.setFromQuaternion((new THREE.Quaternion()).setFromEuler(euler).inverse())
   };
 
   // Return the real world position and
   // orientation of the given marker
-  var poseFromMarker = function(marker) {
-    var markerSize = 70; // mm
-    var posit = new Posit(markerSize, width);
+  var orientMarker = function(marker) {
     // Corners must be centered on canvas 
-    var corners = _.map(marker, function(corner) {
+    var corners = _.map(marker.corners, function(corner) {
       return {
         x: corner.x - (width / 2),
         y: (height / 2) - corner.y
       };
     });
     var pose = posit.pose(corners);
-    console.log(marker);
-    console.log(pose);
-    return {
-      position: pose.bestTranslation,
-      rotation: pose.bestRotation
-    };
+    marker.position = cam2world(arucoVec2three(pose.bestTranslation));
+    marker.rotation = arucoRot2three(pose.bestRotation);
+    marker.error = pose.bestError || 0.1;
   };
 
-  // Adjust color deviations to yield
-  // more stable tracker performance
-  var calibrateColors = function(imageData) {
-    // Calibrate each color separately
-    _.each(colorDefinitions, function(color, name) {
-      // Return number of markers found for this color with given calibration
-      var matchesForDeviation = function(deviation) {
-        deviations[name].dh = deviation;
-        registerColors();
-        var blobs = detectBlobs(imageData);
-        var matchingBlobs = _.select(blobs, function(blob) {
-          return blob.color == name;
-        });
-        return matchingBlobs.length;
+  var getMarkers = function(imageData) {
+    var markers = detector.detect(imageData, 0.05, 2, 7, 0.05, 10);
+    _.each(markers, function(marker) {
+      orientMarker(marker);
+    });
+    return markers;
+  };
+
+  var vecAverage = function(vectors, weights) {
+    var avg = new THREE.Vector3();
+    var sum = 0;
+    _.each(vectors, function(vec, i) {
+      var weight = (weights && weights[i]) || 1;
+      avg.add(vec.multiplyScalar(weight));
+      sum += weight;
+    });
+    return avg.multiplyScalar(1 / sum);
+  };
+
+  var getPose = function(markers, cubeDef) {
+    var cube = _.map(cubeDef, function(def, face) {
+      var marker = _.find(markers, function(marker) {
+        return marker.id == def.id;
+      });
+      if(!marker) return;
+      return {
+        center: def.baseOffset.clone().applyEuler(marker.rotation).add(marker.position),
+        rotation: (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(marker.rotation).multiply(def.baseRotation)),
+        quality: 1 / marker.error + 10
       };
-      var steps = 30;
-      // Increase deviation until we first find a marker of this color
-      var minDeviation = _.step(0.0, 1.0, steps, function(step) {
-        if(matchesForDeviation(step) == 1) return step;
-      });
-      // Decrease deviation until we find only one marker
-      var maxDeviation = _.step(0.0, 1.0, steps, function(step) {
-        if(matchesForDeviation(1 - step) == 1) return 1 - step;
-      });
-      // Set final deviation to weighted average of extremes
-      deviations[name].dh = (minDeviation * 0.75 + maxDeviation * 0.25);
-      console.log("Final deviation for " + name + ": " + deviations[name].dh);
     });
-    registerColors();
-  };
-
-  // Replace reference colors with actual colors found in the image
-  var repickColors = function(imageData) {
-    var blobs = detectBlobs(imageData);
-    _.each(blobs, function(blob) {
-      var color = colorDefinitions[blob.color];
-      if(!color) return;
-      var pixel = colorAround(source.context, blob.position.x, blob.position.y);
-      color.copy(pixel);
-    });
-    registerColors();
-  };
-
-  // Average color surrounding the given coordinates
-  var colorAround = function(context, x, y) {
-    var sum = {
-      r: 0,
-      g: 0,
-      b: 0
+    cube = _.compact(_.values(cube));
+    if(!cube.length) return null;
+    var qualities = _.map(cube, 'quality');
+    return {
+      position: vecAverage(_.map(cube, 'center'), qualities),
+      rotation: vecAverage(_.invoke(_.map(cube, 'rotation'), 'toVector3')), //XXX interpolate quaternions
+      active: false
     };
-    var radius = 5;
-    var steps = 0;
-    _.step(x - radius, x + radius, radius * 2 + 1, function(sx) {
-      _.step(x - radius, y + radius, radius * 2 + 1, function(sy) {
-        var pixel = context.getImageData(sx, sy, 1, 1).data;
-        if(pixel) {
-          sum.r += pixel[0];
-          sum.g += pixel[1];
-          sum.b += pixel[2];
-          steps++;
-        }
-      });
-    });
-    return new THREE.Color(sum.r / steps / 255, sum.g / steps / 255, sum.b / steps / 255);
-  };
-
-  // Find camera height and orientation
-  // and adjust calibration accordingly
-  var fovX = 70; // Degrees
-  var fovY = 60;
-  var radiusAtOneMeter = 15 / 640 * width;
-  var camHeight = 60;
-  var camRotation = 0; // Radians
-
-  var calibrateSpace = function(imageData) {
-    var blobs = detectBlobs(imageData);
-    var groundMarkers = _.select(blobs, function(blob) {
-      return blob.color == colorCombos.ground[0];
-    });
-    if(groundMarkers.length >= 2) {
-      // Zero camera configuration to receive raw values
-      camHeight = 0;
-      camRotation = 0;
-      // Find ground markers in camera space
-      var positions = _.map(groundMarkers, function(marker) {
-        return getBlobPosition(marker);
-      });
-      // Find angle between the vector from one marker to the other and the ground
-      var firstIsGreater = positions[0].y > positions[1].y;
-      var higherPos = firstIsGreater ? positions[0] : positions[1];
-      var lowerPos  = firstIsGreater ? positions[1] : positions[0];
-      var groundLine = higherPos.sub(lowerPos);
-      var realGroundLine = groundLine.copy().setY(0);
-      // Set camera rotation
-      camRotation = groundLine.angleTo(realGroundLine);
-      // Estimate marker positions again to determine ground level
-      var positions = _.map(groundMarkers, function(marker) {
-        return getBlobPosition(marker);
-      });
-      // Set camera height
-      camHeight = -positions[0].y;
-    } else {
-      console.error("Calibration failed: Could not find ground markers");
-    }
-  };
-
-  var calibrate = function() {
-    var imageData = source.getData();
-    // Make sure we find each marker exactly once
-    calibrateColors(imageData);
-    // Update colors to match actual colors found
-    // repickColors(imageData);
-    // Recalibrate for new colors
-    // calibrateColors(imageData);
-    // Now that we find all the markers, position the camera space
-    // calibrateSpace(imageData);
-  };
-
-  // Get blob position in world space
-  var getBlobPosition = function(blob) {
-    // Calculate depth of blob from its radius in the image
-    var depth = radiusAtOneMeter / blob.radius;
-    // Calculate angles using camera's FOV
-    var angleX = -fovX * (blob.position.x / width - 0.5);
-    var angleY = fovY * (blob.position.y / height - 0.5);
-    // Build rotations for these angles
-    var yAxis = new THREE.Vector3(0, 1, 0);
-    var rotY = (new THREE.Quaternion()).setFromAxisAngle(yAxis, THREE.Math.degToRad(angleX));
-    var xAxis = new THREE.Vector3(1, 0, 0);
-    xAxis.applyQuaternion(rotY);
-    // Add in calibrated camera rotation
-    var rotX = (new THREE.Quaternion()).setFromAxisAngle(xAxis, THREE.Math.degToRad(angleY) + camRotation);
-    // Rotate depth vector to yield blob position
-    var position = new THREE.Vector3(0, 0, depth * 100);
-    position.applyQuaternion(rotY).applyQuaternion(rotX);
-    // Add camera height to yield world position
-    position.setY(position.y + camHeight);
-    // console.log(position);
-    return position;
-  };
-
-  // Return head position if found
-  var getHeadPosition = function(blobs) {
-    var headBlob = _.find(blobs, function(blob) {
-      return blob.color == colorCombos.head[0];
-    });
-    if(headBlob) {
-      return getBlobPosition(headBlob);
-    }
   };
 
   // Detect the world positions of
   // all body parts using the given image
-  var getBodyParts = function(imageData) {
-    var blobs = detectBlobs(imageData);
-    var head = getHeadPosition(blobs);
-    // var markers = detectMarkers(blobs);
-
-    var markers = {
-      head: {
-        position: head
-      },
-      left: {
-        position: head,
-        active: false
-      },
-      right: {
-        position: head,
-        active: false
-      }
+  var getBody = function(imageData) {
+    var markers = getMarkers(imageData);
+    var hmd = getPose(markers, cubeDefs.hmd);
+    var left = getPose(markers, cubeDefs.hmd);
+    var right = getPose(markers, cubeDefs.hmd);
+    // Draw markers back onto canvas
+    drawMarkers(markers, source.context);
+    return {
+      hmd: hmd,
+      leftHand: left,
+      rightHand: right,
+      markers: markers
     };
+  };
 
-    // Draw rectangles back onto canvas
-    drawBlobs(blobs, source.context);
-
-    return markers;
-
-    // var poses = _.map(markers, function(marker) {
-    //   return marker && poseFromMarker(marker);
-    // });
-    // return poses;
+  var calibrate = function(imageData) {
+    cameraPosition = new THREE.Vector3();
+    // return;
+    cameraPosition = new THREE.Vector3(100, 170, 100);
+    worldScale = 1;
+    return;
+    var body = getBody(imageData);
+    if(!body.hmd) return; //XXX
+    cameraPosition = body.hmd.position.clone().negate(); //copy
+    cameraRotation = invertEuler(body.hmd.rotation.clone()); // copy
+    worldScale = 1 / cameraPosition.length();
   };
 
   var lastNow;
@@ -364,14 +209,13 @@ var ColorTracker = function(cb, width, height) {
     requestAnimationFrame(tick);
     var now = new Date().getTime();
     var delta = now - (lastNow || now);
-    if(delta && delta < 1000 / tracksPerSecond) return;
+    if(delta && delta < 1000 / maxFPS) return;
     lastNow = now;
     // Get image pixels
     var imageData = source.getData();
     if(!imageData) return;
-    // Detect head and hand positions and orientations
-    var body = getBodyParts(imageData);
-    cb(body);
+    // Detect HMD and hands
+    cb(getBody(imageData));
   };
 
   var self = {
@@ -394,25 +238,14 @@ var ColorTracker = function(cb, width, height) {
         _.waitFor(function() {
           return source.getData();
         }, function() {
-          // calibrate();
+          calibrate(source.getData());
           cb();
         });
       });
-    },
-
-    setDeviations: function(devs) {
-      _.each(devs, function(deviation, name) {
-        deviations[name].dh = deviation;
-      });
-      registerColors();
     }
   };
 
   return self;
 };
 
-var distance = function(p1, p2) {
-  return Math.sqrt(_.square(p1.x - p2.x) + _.square(p1.y - p2.y));
-};
-
-module.exports = ColorTracker;
+module.exports = Tracker;

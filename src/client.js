@@ -14,6 +14,7 @@ var Receiver = function(uuid) {
   
   // Emit track event when desktop sends data
   socket.on('track', function(body) {
+    // console.log(body);
     self.emit('track', [body]);
   });
 
@@ -23,8 +24,8 @@ var Receiver = function(uuid) {
   });
 
   // Tell server that the player has placed the headset into its tray
-  this.calibrationFinished = function() {
-    socket.emit('calibrationFinished', uuid);
+  this.hmdPlaced = function() {
+    socket.emit('hmdPlaced', uuid);
   };
 
   // Tell server that the player has finished defining the bounds of the workspace

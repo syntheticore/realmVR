@@ -22,6 +22,13 @@ module.exports = {
     return q;
   },
 
+  quaternionFromHeadingRad: function(heading) {
+    var q = new THREE.Quaternion();
+    var axis = new THREE.Vector3(0, 1, 0);
+    q.setFromAxisAngle(axis, heading);
+    return q;
+  },
+
   quaternionDifference: function(q1, q2) {
     return q1.clone().inverse().multiply(q2.clone());
   }

@@ -45,13 +45,19 @@ AR.Detector = function(){
   this.candidates = [];
 };
 
-AR.Detector.prototype.detect = function(image){
+AR.Detector.prototype.detect = function(image, minArea, kernelSize, threshold, epsilon, minLength){
+  minArea = minArea || 0.2;
+  kernelSize = kernelSize || 2;
+  threshold = threshold || 7;
+  epsilon = epsilon || 0.05;
+  minLength = minLength || 10;
+
   CV.grayscale(image, this.grey);
-  CV.adaptiveThreshold(this.grey, this.thres, 2, 7);
+  CV.adaptiveThreshold(this.grey, this.thres, kernelSize, threshold);
   
   this.contours = CV.findContours(this.thres, this.binary);
 
-  this.candidates = this.findCandidates(this.contours, image.width * 0.20, 0.05, 10);
+  this.candidates = this.findCandidates(this.contours, image.width * minArea, epsilon, minLength);
   this.candidates = this.clockwiseCorners(this.candidates);
   this.candidates = this.notTooNear(this.candidates, 10);
 

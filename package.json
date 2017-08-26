@@ -14,10 +14,13 @@
   },
   "main": "./src/main.js",
   "dependencies": {
+    "browser-qr-js": "^1.1.3",
     "eakwell": "^0.2.0",
     "socket.io": "^1.3.7",
-    "three": "^0.72.0",
-    "tracking": "^1.1.1"
+    "three": "^0.72.0"
+  },
+  "scripts": {
+    "vreffect": "curl https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/js/effects/VREffect.js -o node_modules/three/examples/js/effects/VREffect.js"
   },
   "keywords": [
     "vr",

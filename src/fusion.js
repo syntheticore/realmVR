@@ -3,31 +3,29 @@ var _ = require('eakwell');
 
 var Utils = require('./utils.js');
 
-var Fusion = function(client, deviceHeadDistance) {
+var Fusion = function(client) {
   var self = this;
   _.eventHandling(self);
 
   var convergenceHeadPos = 0.002;
   var convergenceHeadVelocity = 1.5;
-  var convergenceHeading = 0.0001;
+  var convergenceHeading = 0.01;
   var convergenceHands = 0.1;
 
   var maxVelocity = 30;
   var maxBrakeDistance = 100;
 
-  var doCompassCorrection = true;
-
-  var useKeyboard = false;
-
   self.body = {
     left: {
       position: new THREE.Vector3(0, 0, 0),
       velocity: new THREE.Vector3(0, 0, 0),
+      orientation: new THREE.Quaternion(),
       active: false
     },
     right: {
       position: new THREE.Vector3(0, 0, 0),
       velocity: new THREE.Vector3(0, 0, 0),
+      orientation: new THREE.Quaternion(),
       active: false
     },
     head: {
@@ -41,70 +39,59 @@ var Fusion = function(client, deviceHeadDistance) {
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  // leftPredictor.feed(new THREE.Vector3(15, 170, 70));
-  // rightPredictor.feed(new THREE.Vector3(-15, 170, 70));
   leftPredictor.feed(new THREE.Vector3(-80, 120, 130));
   rightPredictor.feed(new THREE.Vector3(-80, 120, 70));
   headPredictor.feed(new THREE.Vector3(0, 170, 100));
 
+  var absHmdRotation = new THREE.Euler();
   var leftActive = false;
   var rightActive = false;
 
   client.on('track', function(body) {
-    leftPredictor.feed(body.left.position);
-    rightPredictor.feed(body.right.position);
-    headPredictor.feed(body.head.position);
+    leftPredictor.feed(body.leftHand.position);
+    rightPredictor.feed(body.rightHand.position);
+    headPredictor.feed(body.hmd.position);
 
-    leftActive = body.left.active;
-    rightActive = body.right.active;
+    absHmdRotation = body.hmd.rotation;
+
+    leftActive = body.leftHand.active;
+    rightActive = body.rightHand.active;
   });
 
   var getTrackedPose = function() {
     return {
       left: {
-        position: leftPredictor.predict().add(getViewVector()),
+        position: leftPredictor.predict(),
         active: leftActive
       },
       right: {
-        position: rightPredictor.predict().add(getViewVector()),
+        position: rightPredictor.predict(),
         active: rightActive
       },
       head: {
-        position: headPredictor.predict()
+        position: headPredictor.predict(),
+        orientation: absHmdRotation
       }
     };
   };
-
-  // Update screen orientation
-  var screenOrientation = window.orientation || 0;
-
-  _.on(window, 'orientationchange', function(e) {
-    screenOrientation = window.orientation;
-    // Prevent white border problem in Safari
-    _.defer(function() {
-      window.scrollTo(0, 0);
-    }, 500);
-  });
 
   // Update and predict device orientation
   var alphaPredictor = new Predictor(0,    360, true);
   var betaPredictor  = new Predictor(-180, 180, true);
   var gammaPredictor = new Predictor(-90,  90,  true);
-  var lastHeading = 0;
 
   _.on(window, 'deviceorientation', function(e) {
     alphaPredictor.feed(e.alpha);
     betaPredictor.feed(e.beta);
     gammaPredictor.feed(e.gamma);
-    lastHeading = e.webkitCompassHeading || (360 - e.alpha);
   });
+  //XXX Use devicemotion angular velocity directly instead of deviceorientation (more reliable fire rate)
 
-  var getDeviceOrientation = function() {
+  var getDeviceRotation = function() {
     return {
       alpha: alphaPredictor.predict() || 0,
       beta: betaPredictor.predict()   || 90,
-      gamma: gammaPredictor.predict() || 0,
-      heading: lastHeading
+      gamma: gammaPredictor.predict() || 0
     };
   };
 
@@ -122,12 +109,19 @@ var Fusion = function(client, deviceHeadDistance) {
     velocity.x += dampenAcceleration(acceleration.x * e.interval, velocity.x, e.interval, bodyAbs);
     velocity.y += dampenAcceleration(acceleration.y * e.interval, velocity.y, e.interval, bodyAbs);
     velocity.z += dampenAcceleration(acceleration.z * e.interval, velocity.z, e.interval, bodyAbs);
+    // e.rotationRate.alpha
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
-    shakiness = shakiness * 0.5 + 
-                (
-                  // (Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z)) / 3 +
-                  (Math.abs(e.rotationRate.alpha) + Math.abs(e.rotationRate.beta) + Math.abs(e.rotationRate.gamma)) / 3
-                ) * 0.5;
+  });
+
+  // Update screen orientation
+  var screenOrientation = window.orientation || 0;
+
+  _.on(window, 'orientationchange', function(e) {
+    screenOrientation = window.orientation;
+    // Prevent white border problem in Safari
+    _.defer(function() {
+      window.scrollTo(0, 0);
+    }, 500);
   });
 
   var dampenAcceleration = function(acceleration, velocity, interval, bodyAbs) {
@@ -142,78 +136,33 @@ var Fusion = function(client, deviceHeadDistance) {
     return braking;
   };
 
-  // Compass heading
-  var getAbsoluteHeading = function() {
-    var orientation = getDeviceOrientation();
-    var beta = orientation.beta;
-    // Only in this interval can compass values be trusted
-    if(beta < 90 && beta > -90) {
-      return 360 - orientation.heading;
-    }
-  };
-
-  // Minimal rotation in any direction to yield the
-  // same result as rotating the given angle
-  var minimalRotation = function(angle) {
-    if(angle >= 360) {
-      angle = angle - 360;
-    } else if(angle < 0) {
-      angle = 360 + angle;
-    }
-    if(Math.abs(angle) > 180) {
-      return (360 - Math.abs(angle)) * (angle > 0 ? -1 : 1);
-    }
-    return angle;
-  }
-
   // Offset from gyro to compass
   var getHeadingDiff = function() {
-    var compass = getAbsoluteHeading();
-    if(compass) {
-      var diff = getDeviceOrientation().alpha - compass;
-      return minimalRotation(diff);
-    }
+    var diff = absHmdRotation.y - THREE.Math.degToRad(getDeviceRotation().alpha);
+    return diff + Math.PI;
+    // return minimalRotation(diff);
   };
 
-  // Current looking direction
-  var getViewVector = function() {
-    var viewVector = new THREE.Vector3(0, 0, -deviceHeadDistance);
-    viewVector.applyQuaternion(self.body.head.orientation);
-    return viewVector;
-  };
-
-  var devicePosition = new THREE.Vector3();
-  var initialHeadingDiff = 0;
-  var headingOffsetCorrection = Utils.quaternionFromHeading(0);
-
-  var lastHeadingDiff = 0;
-  var smoothDrift = 0;
+  var headingDivergence = 0;
 
   // Call calibrate once while oriented towards camera
   self.calibrate = function() {
-    // Determine forward direction
-    var initialAlpha = getDeviceOrientation().alpha - 90;
-    headingOffsetCorrection = Utils.quaternionFromHeading(-initialAlpha);
-    // Determine divergence of gyro from compass
-    initialHeadingDiff = getHeadingDiff() || 0;
+    headingDivergence = getHeadingDiff();
   };
 
   self.update = function(delta) {
     delta = delta || 0;
     // Determine device orientation
-    var deviceOrientation = getDeviceOrientation();
-    var orientation = toQuaternion(deviceOrientation.alpha, deviceOrientation.beta, deviceOrientation.gamma, screenOrientation);
-
-    // Correct accumulated heading drift using compass
-    var headingDiff = getHeadingDiff();
-    if(headingDiff) lastHeadingDiff = headingDiff;
-    headingDiff = lastHeadingDiff;
-    var drift = minimalRotation(initialHeadingDiff - headingDiff);
-    smoothDrift = smoothDrift * (1 - convergenceHeading) + drift * convergenceHeading * (doCompassCorrection ? 1 : 0);
-    var headingDriftCorrection = Utils.quaternionFromHeading(smoothDrift);
+    var deviceRotation = getDeviceRotation();
+    var orientation = toQuaternion(deviceRotation.alpha, deviceRotation.beta, deviceRotation.gamma, screenOrientation); //XXX always landscape
 
     // Correct heading to match tracker space
-    self.body.head.orientation = headingDriftCorrection.multiply(headingOffsetCorrection).multiply(orientation);
+    var headingDiff = getHeadingDiff();
+    headingDivergence = headingDivergence * (1 - convergenceHeading) + headingDiff * convergenceHeading;
+    var headingDriftCorrection = Utils.quaternionFromHeadingRad(headingDivergence);
+    self.body.head.orientation = headingDriftCorrection.multiply(orientation);
+
+    // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation)).multiply(headingDriftCorrection);
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
@@ -225,13 +174,9 @@ var Fusion = function(client, deviceHeadDistance) {
     positionCorrection.multiplyScalar(convergenceHeadPos * delta);
 
     // Integrate velocity to yield device position
-    devicePosition.x += velocity.x * delta / 4 + positionCorrection.x;
-    devicePosition.y += velocity.y * delta / 4 + positionCorrection.y;
-    devicePosition.z += velocity.z * delta / 4 + positionCorrection.z;
-
-    // Derive head position from device position by following inverse view vector
-    var viewVector = getViewVector();
-    self.body.head.position.copy(devicePosition).sub(viewVector);
+    self.body.head.position.x += velocity.x * delta / 4 + positionCorrection.x;
+    self.body.head.position.y += velocity.y * delta / 4 + positionCorrection.y;
+    self.body.head.position.z += velocity.z * delta / 4 + positionCorrection.z;
 
     // Converge hand positions to position from tracker
     var oldLeft = self.body.left.position.clone();
@@ -260,15 +205,6 @@ var Fusion = function(client, deviceHeadDistance) {
     } else if(!self.body.right.active && lastRightActive) {
       self.emit('triggerEnd', ['right']);
     }
-
-    // Collect potentially disorienting corrections so they can optionally be undone during rendering
-    var corrections = {
-      shakiness: shakiness,
-      position: positionCorrection,
-      rotation: smoothDrift
-    };
-
-    return corrections;
   };
 };
 
@@ -293,6 +229,7 @@ var Predictor = function(min, max, disable) {
   };
 
   this.predict = function() {
+    // return lastValue;
     if(lastDiff != undefined && !disable) {
       // Predict
       var value = lastValue + this.changeSinceFeed();
