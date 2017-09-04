@@ -4,16 +4,24 @@ var _ = require('eakwell');
 module.exports = {
   // Determine cardinal direction from orientation
   headingFromQuaternion: function(q) {
-    var toFront = new THREE.Vector3(1, 0, 0);
+    var toFront = new THREE.Vector3(0, 0, 1);
     toFront.applyQuaternion(q);
     toFront.setY(0);
     toFront.normalize();
-    var heading = THREE.Math.radToDeg(toFront.angleTo(new THREE.Vector3(1, 0, 0)));
-    if((toFront.x > 0 && toFront.z > 0)  || (toFront.x < 0 && toFront.z > 0)) {
-      heading = 360 - heading;
-    }
-    return heading;
+    return toFront.angleTo(new THREE.Vector3(0, 0, 1));
   },
+
+  // headingFromQuaternion: function(q) {
+  //   var toFront = new THREE.Vector3(1, 0, 0);
+  //   toFront.applyQuaternion(q);
+  //   toFront.setY(0);
+  //   toFront.normalize();
+  //   var heading = THREE.Math.radToDeg(toFront.angleTo(new THREE.Vector3(1, 0, 0)));
+  //   if((toFront.x > 0 && toFront.z > 0)  || (toFront.x < 0 && toFront.z > 0)) {
+  //     heading = 360 - heading;
+  //   }
+  //   return heading;
+  // },
 
   quaternionFromHeading: function(heading) {
     var q = new THREE.Quaternion();

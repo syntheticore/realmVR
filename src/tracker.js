@@ -1,5 +1,6 @@
 var _ = require('eakwell');
 var THREE = require('three');
+var jsfeat = require('jsfeat');
 
 var Posit = require('./deps/posit.js').Posit;
 var Aruco = require('./deps/aruco.js');
@@ -14,6 +15,7 @@ var Tracker = function(cb, width, height) {
 
   var source = new VideoSource(width, height);
   var detector = new Aruco.Detector();
+  var motionTracker = new MotionTracker(width, height);
   var posit = new Posit(markerSize, width);
 
   var cameraPosition = new THREE.Vector3();
@@ -76,7 +78,7 @@ var Tracker = function(cb, width, height) {
     _.each(markers, function(marker) {
       // Oulines
       ctx.beginPath();
-      ctx.strokeStyle = 'red';
+      ctx.strokeStyle = (marker.isApproximated ? 'white' : 'red');
       var lastCorner = marker.corners[3];
       ctx.moveTo(lastCorner.x, lastCorner.y);
       _.each(marker.corners, function(corner) {
@@ -158,7 +160,7 @@ var Tracker = function(cb, width, height) {
       return {
         center: def.baseOffset.clone().applyEuler(marker.rotation).add(marker.position),
         rotation: (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(marker.rotation).multiply(def.baseRotation)),
-        quality: 1 / marker.error + 10
+        quality: 1 / marker.error + 5
       };
     });
     cube = _.compact(_.values(cube));
@@ -171,10 +173,43 @@ var Tracker = function(cb, width, height) {
     };
   };
 
+  var lastMarkers;
+
+  var motionComplete = function(markers, imageData) {
+    motionTracker.clear();
+    var unfoundMarkers = _.select(lastMarkers, function(lastMarker) {
+      return !_.any(markers, function(marker) {
+        return marker.id == lastMarker.id;
+      });
+    });
+    _.each(unfoundMarkers, function(marker) {
+      _.each(marker.corners, function(corner) {
+        corner.motionIndex = motionTracker.addPoint(corner.x, corner.y);
+      });
+      marker.isApproximated = true;
+    });
+    motionTracker.tick(imageData, source.context);
+    _.each(unfoundMarkers, function(marker) {
+      var complete = _.all(marker.corners, function(corner) {
+        var point = motionTracker.getPoint(corner.motionIndex);
+        if(!point) return false;
+        corner.x = point.x;
+        corner.y = point.y;
+        return true;
+      });
+      if(complete) {
+        orientMarker(marker);
+        markers.push(marker);
+      }
+    });
+    lastMarkers = markers;
+  };
+
   // Detect the world positions of
   // all body parts using the given image
   var getBody = function(imageData) {
     var markers = getMarkers(imageData);
+    motionComplete(markers, imageData);
     var hmd = getPose(markers, cubeDefs.hmd);
     var left = getPose(markers, cubeDefs.hmd);
     var right = getPose(markers, cubeDefs.hmd);
@@ -202,6 +237,7 @@ var Tracker = function(cb, width, height) {
   };
 
   var lastNow;
+  var lastImageData;
 
   var tick = function() {
     if(!self.running) return;
@@ -216,6 +252,7 @@ var Tracker = function(cb, width, height) {
     if(!imageData) return;
     // Detect HMD and hands
     cb(getBody(imageData));
+    lastImageData = imageData;
   };
 
   var self = {
@@ -246,6 +283,58 @@ var Tracker = function(cb, width, height) {
   };
 
   return self;
+};
+
+var MotionTracker = function(width, height) {
+  var self = this;
+
+  var maxPoints = 64;
+
+  self.win_size = 20;
+  self.max_iterations = 30;
+  self.epsilon = 0.01;
+  self.minEigen = 0.001;
+
+  var pyramid = new jsfeat.pyramid_t(3);
+  var lastPyramid = new jsfeat.pyramid_t(3);
+  pyramid.allocate(width, height, jsfeat.U8_t | jsfeat.C1_t);
+  lastPyramid.allocate(width, height, jsfeat.U8_t | jsfeat.C1_t);
+
+  var pointCount = 0;
+  var status = new Uint8Array(maxPoints);
+  var points = new Float32Array(maxPoints * 2);
+  var lastPoints = new Float32Array(maxPoints * 2);
+
+
+  self.addPoint = function(x, y) {
+    points[pointCount<<1] = x;
+    points[(pointCount<<1)+1] = y;
+    return pointCount++;
+  };
+
+  self.getPoint = function(index) {
+    if(!status[index]) return;
+    return {
+      x: points[index<<1],
+      y: points[(index<<1) + 1]
+    };
+  };
+
+  self.tick = function(imageData, ctx) {
+    var tmp = lastPoints;
+    lastPoints = points;
+    points = tmp;
+    tmp = lastPyramid;
+    lastPyramid = pyramid;
+    pyramid = tmp;
+    jsfeat.imgproc.grayscale(imageData.data, width, height, pyramid.data[0]);
+    pyramid.build(pyramid.data[0], true);
+    jsfeat.optical_flow_lk.track(lastPyramid, pyramid, lastPoints, points, pointCount, self.win_size|0, self.max_iterations|0, status, self.epsilon, self.minEigen);
+  };
+
+  self.clear = function() {
+    pointCount = 0;
+  };
 };
 
 module.exports = Tracker;

@@ -139,8 +139,8 @@ var Fusion = function(client) {
   // Offset from gyro to compass
   var getHeadingDiff = function() {
     var diff = absHmdRotation.y - THREE.Math.degToRad(getDeviceRotation().alpha);
+    // var diff = absHmdRotation.y - Utils.headingFromQuaternion(self.body.head.orientation);
     return diff + Math.PI;
-    // return minimalRotation(diff);
   };
 
   var headingDivergence = 0;
@@ -229,7 +229,7 @@ var Predictor = function(min, max, disable) {
   };
 
   this.predict = function() {
-    // return lastValue;
+    return lastValue;
     if(lastDiff != undefined && !disable) {
       // Predict
       var value = lastValue + this.changeSinceFeed();
