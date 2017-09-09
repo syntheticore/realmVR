@@ -1,8 +1,11 @@
 var _ = require('eakwell');
 
-// Provide easy access to raw image
-// data from a live video stream
+// Provide easy access to raw image data from a live
+// video stream at the camera's native frame rate
 var VideoSource = function(width, height) {
+  var numTestFrames = 60;
+  var grabInterval = 1000 / 60;
+
   var video = document.createElement('video');
   video.width = width;
   video.height = height;
@@ -12,15 +15,77 @@ var VideoSource = function(width, height) {
   canvas.height = height;
   var context = canvas.getContext('2d');
 
+  var compareFrames = function(frame1, frame2) {
+    for(var i = frame1.data.length - 1; i >= 0; i--) {
+      if(frame1.data[i] != frame2.data[i]) return true;
+    }
+  };
+
+  var collectFrames = function() {
+    return new Promise(function(ok) {
+      var frames = [];
+      video.play();
+      _.waitFor(function() {
+        return self.getData();
+      }, function() {
+        var loop = function() {
+          if(frames.length >= numTestFrames) {
+            video.pause();
+            return ok(frames);
+          }
+          requestAnimationFrame(loop);
+          frames.push({
+            timestamp: Date.now(),
+            image: self.getData()
+          });
+        };
+        loop();
+      });
+    });
+  };
+
+  var testFramerate = function() {
+    return collectFrames().then(function(frames) {
+      var frameDurations = [];
+      var duration = 0;
+      _.each(frames, function(frame, i) {
+        var nextFrame = frames[i + 1];
+        if(!nextFrame) return;
+        var different = compareFrames(frame.image, nextFrame.image);
+        duration += nextFrame.timestamp - frame.timestamp;
+        if(different) {
+          frameDurations.push(duration);
+          duration = 0;
+        }
+      });
+      frameDurations.shift();
+      frameDurations.shift();
+      return _.minBy(frameDurations, function(duration) {
+        return duration;
+      });
+    });
+  };
+
   var init = _.promise(function(ok, fail) {
     if(!navigator.mediaDevices) {
       fail("getUserMedia() not supported.");
       return;
     }
-    navigator.mediaDevices.getUserMedia({video: true}).then(function(stream) {
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        width: width,
+        height: height,
+        frameRate: 60
+      }
+    }).then(function(stream) {
       video.src = window.URL.createObjectURL(stream);
       video.onloadedmetadata = function() {
-        ok();
+        testFramerate().then(function(frameRate) {
+          grabInterval = frameRate;
+          console.log('Grabbing frames at ' + Math.round(1000 / frameRate) + ' FPS');
+          ok();
+        });
       };
     }).catch(function(err) {
       console.error(err);
@@ -28,19 +93,34 @@ var VideoSource = function(width, height) {
     });
   });
 
-  return {
+  var running = false;
+
+  var self = {
     canvas: canvas,
     context: context,
 
     play: function() {
       return init.then(function() {
         video.play();
+        running = true;
       });
     },
 
     pause: function() {
       return init.then(function() {
         video.pause();
+        running = false;
+      });
+    },
+
+    run: function(cb) {
+      return self.play().then(function() {
+        var loop = function() {
+          if(!running) return;
+          setTimeout(loop, grabInterval);
+          cb(self.getData());
+        };
+        loop();
       });
     },
 
@@ -52,6 +132,8 @@ var VideoSource = function(width, height) {
       }
     }
   };
+
+  return self;
 };
 
 // Shim for older implementations of getUserMedia
