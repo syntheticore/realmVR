@@ -224,8 +224,6 @@ var Tracker = function(cb, width, height) {
   };
 
   var calibrate = function(imageData) {
-    cameraPosition = new THREE.Vector3();
-    // return;
     cameraPosition = new THREE.Vector3(100, 170, 100);
     worldScale = 1;
     return;
@@ -239,22 +237,6 @@ var Tracker = function(cb, width, height) {
   var lastNow;
   var lastImageData;
 
-  var tick = function() {
-    if(!self.running) return;
-    // Rate limit detector to give garbage collector some time between frames
-    requestAnimationFrame(tick);
-    var now = new Date().getTime();
-    var delta = now - (lastNow || now);
-    if(delta && delta < 1000 / maxFPS) return;
-    lastNow = now;
-    // Get image pixels
-    var imageData = source.getData();
-    if(!imageData) return;
-    // Detect HMD and hands
-    cb(getBody(imageData));
-    lastImageData = imageData;
-  };
-
   var self = {
     running: false,
     videoSource: source,
@@ -262,7 +244,10 @@ var Tracker = function(cb, width, height) {
     start: function() {
       if(self.running) return _.promiseFrom(null);
       self.running = true;
-      return source.play().then(tick);
+      return source.run(function(imageData) {
+        if(lastImageData) cb(getBody(imageData));
+        lastImageData = imageData;
+      });
     },
 
     stop: function() {

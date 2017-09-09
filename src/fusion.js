@@ -87,12 +87,28 @@ var Fusion = function(client) {
   });
   //XXX Use devicemotion angular velocity directly instead of deviceorientation (more reliable fire rate)
 
+  // Update screen orientation
+  var screenOrientation = window.orientation || 0;
+
+  _.on(window, 'orientationchange', function(e) {
+    screenOrientation = window.orientation;
+    // Prevent white border problem in Safari
+    _.defer(function() {
+      window.scrollTo(0, 0);
+    }, 500);
+  });
+
   var getDeviceRotation = function() {
     return {
       alpha: alphaPredictor.predict() || 0,
       beta: betaPredictor.predict()   || 90,
       gamma: gammaPredictor.predict() || 0
     };
+  };
+
+  var getDeviceOrientation = function() {
+    var rotation = getDeviceRotation();
+    return toQuaternion(rotation.alpha, rotation.beta, rotation.gamma, screenOrientation);
   };
 
   // Integrate device motion to yield velocity
@@ -113,17 +129,6 @@ var Fusion = function(client) {
     // LOG("X: " + velocity.x + " Y: " + velocity.y + " Z: " + velocity.z);
   });
 
-  // Update screen orientation
-  var screenOrientation = window.orientation || 0;
-
-  _.on(window, 'orientationchange', function(e) {
-    screenOrientation = window.orientation;
-    // Prevent white border problem in Safari
-    _.defer(function() {
-      window.scrollTo(0, 0);
-    }, 500);
-  });
-
   var dampenAcceleration = function(acceleration, velocity, interval, bodyAbs) {
     // Correct more aggressively the closer we get to maxVelocity
     var dampFactor = Math.min(1, Math.abs(velocity) / maxVelocity);
@@ -138,9 +143,11 @@ var Fusion = function(client) {
 
   // Offset from gyro to compass
   var getHeadingDiff = function() {
-    var diff = absHmdRotation.y - THREE.Math.degToRad(getDeviceRotation().alpha);
-    // var diff = absHmdRotation.y - Utils.headingFromQuaternion(self.body.head.orientation);
-    return diff + Math.PI;
+    var yAxis = new THREE.Vector3(0, 1, 0);
+    var deviceTwist = Utils.getTwistAngle(getDeviceOrientation(), yAxis);
+    var trackerOrientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation));
+    var trackerTwist = Utils.getTwistAngle(trackerOrientation, yAxis);
+    return trackerTwist - deviceTwist + Math.PI;
   };
 
   var headingDivergence = 0;
@@ -152,17 +159,15 @@ var Fusion = function(client) {
 
   self.update = function(delta) {
     delta = delta || 0;
-    // Determine device orientation
-    var deviceRotation = getDeviceRotation();
-    var orientation = toQuaternion(deviceRotation.alpha, deviceRotation.beta, deviceRotation.gamma, screenOrientation); //XXX always landscape
 
     // Correct heading to match tracker space
+    var orientation = getDeviceOrientation();
     var headingDiff = getHeadingDiff();
     headingDivergence = headingDivergence * (1 - convergenceHeading) + headingDiff * convergenceHeading;
     var headingDriftCorrection = Utils.quaternionFromHeadingRad(headingDivergence);
     self.body.head.orientation = headingDriftCorrection.multiply(orientation);
 
-    // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation)).multiply(headingDriftCorrection);
+    // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation)).multiply(Utils.quaternionFromHeadingRad(Math.PI));
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
