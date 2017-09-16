@@ -35,7 +35,7 @@ var VideoSource = function(width, height) {
           }
           requestAnimationFrame(loop);
           frames.push({
-            timestamp: Date.now(),
+            timestamp: performance.now(),
             image: self.getData()
           });
         };
@@ -81,9 +81,9 @@ var VideoSource = function(width, height) {
     }).then(function(stream) {
       video.src = window.URL.createObjectURL(stream);
       video.onloadedmetadata = function() {
-        testFramerate().then(function(frameRate) {
-          grabInterval = frameRate;
-          console.log('Grabbing frames at ' + Math.round(1000 / frameRate) + ' FPS');
+        testFramerate().then(function(_grabInterval) {
+          grabInterval = _grabInterval;
+          console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
           ok();
         });
       };
@@ -118,7 +118,10 @@ var VideoSource = function(width, height) {
         var loop = function() {
           if(!running) return;
           setTimeout(loop, grabInterval);
-          cb(self.getData());
+          cb({
+            timestamp: Date.now(),
+            data: self.getData()
+          });
         };
         loop();
       });

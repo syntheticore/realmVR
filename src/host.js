@@ -46,15 +46,15 @@ var Host = function(width, height, mobileUrl) {
   });
 
   // Track body through webcam
-  var tracker = new Tracker(function(body) {
+  var tracker = new Tracker(function(result) {
     // Broadcast coordinates to registered mobile devices
-    if(!body.hmd || !body.hmd.position) return;
-    // console.log(body);
+    if(!result.pose.hmd || !result.pose.hmd.position) return;
     socket.emit('track', {
       uuid: self.uuid,
-      body: body
+      pose: result.pose,
+      delay: Date.now() - result.timestamp
     });
-    self.emit('track', [body]);
+    self.emit('track', [result.pose]);
   }, width, height);
 
   // Canvas with tracking markers on video stream

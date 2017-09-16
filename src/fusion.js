@@ -41,21 +41,21 @@ var Fusion = function(client) {
 
   leftPredictor.feed(new THREE.Vector3(-80, 120, 130));
   rightPredictor.feed(new THREE.Vector3(-80, 120, 70));
-  headPredictor.feed(new THREE.Vector3(0, 170, 100));
+  headPredictor.feed(new THREE.Vector3(250, 170, 100));
 
   var absHmdRotation = new THREE.Euler();
   var leftActive = false;
   var rightActive = false;
 
-  client.on('track', function(body) {
-    leftPredictor.feed(body.leftHand.position);
-    rightPredictor.feed(body.rightHand.position);
-    headPredictor.feed(body.hmd.position);
+  client.on('track', function(result) {
+    leftPredictor.feed(result.pose.leftHand.position, result.delay);
+    rightPredictor.feed(result.pose.rightHand.position, result.delay);
+    headPredictor.feed(result.pose.hmd.position, result.delay);
 
-    absHmdRotation = body.hmd.rotation;
+    absHmdRotation = result.pose.hmd.rotation;
 
-    leftActive = body.leftHand.active;
-    rightActive = body.rightHand.active;
+    leftActive = result.pose.leftHand.active;
+    rightActive = result.pose.rightHand.active;
   });
 
   var getTrackedPose = function() {
@@ -214,12 +214,14 @@ var Fusion = function(client) {
 };
 
 var Predictor = function(min, max, disable) {
+  var maxDelta = 1000;
+
   var lastValue;
   var lastNow;
   var lastDiff;
 
-  this.feed = function(value) {
-    var now = performance.now();
+  this.feed = function(value, delay) {
+    var now = performance.now() - (delay || 0);
     if(lastValue != undefined) {
       lastDiff = (value - lastValue) / (now - lastNow);
     }
@@ -229,12 +231,11 @@ var Predictor = function(min, max, disable) {
 
   this.changeSinceFeed = function() {
     if(lastDiff == undefined) return;
-    var progress = performance.now() - lastNow;
+    var progress = Math.min(maxDelta, performance.now() - lastNow);
     return lastDiff * progress;
   };
 
   this.predict = function() {
-    return lastValue;
     if(lastDiff != undefined && !disable) {
       // Predict
       var value = lastValue + this.changeSinceFeed();

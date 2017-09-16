@@ -8,14 +8,16 @@ var Receiver = function(uuid) {
 
   uuid = uuid || 1;
 
+  var networkDelay = 6; // millis
+
   // Register for updates from desktop
   var socket = io();
   socket.emit('register', uuid);
   
   // Emit track event when desktop sends data
-  socket.on('track', function(body) {
-    // console.log(body);
-    self.emit('track', [body]);
+  socket.on('track', function(result) {
+    result.delay += networkDelay;
+    self.emit('track', [result]);
   });
 
   // Emit configuration event when desktop sends data

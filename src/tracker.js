@@ -244,9 +244,14 @@ var Tracker = function(cb, width, height) {
     start: function() {
       if(self.running) return _.promiseFrom(null);
       self.running = true;
-      return source.run(function(imageData) {
-        if(lastImageData) cb(getBody(imageData));
-        lastImageData = imageData;
+      return source.run(function(image) {
+        if(lastImageData) {
+          cb({
+            pose: getBody(image.data),
+            timestamp: image.timestamp
+          });
+        }
+        lastImageData = image.data;
       });
     },
 

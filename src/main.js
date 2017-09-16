@@ -55,7 +55,7 @@ var realmVR = {
         // Dispatch data to registered clients in the same session
         } else {
           _.each(sessions[data.uuid].clients, function(sock) {
-            sock.emit('track', data.body);
+            sock.emit('track', data);
           });
         }
       });
