@@ -75,6 +75,17 @@ var Fusion = function(client) {
     };
   };
 
+  // Update screen orientation
+  var screenOrientation = window.orientation || 0;
+
+  _.on(window, 'orientationchange', function(e) {
+    screenOrientation = window.orientation;
+    // Prevent white border problem in Safari
+    _.defer(function() {
+      window.scrollTo(0, 0);
+    }, 500);
+  });
+
   // Update and predict device orientation
   var alphaPredictor = new Predictor(0,    360, true);
   var betaPredictor  = new Predictor(-180, 180, true);
@@ -86,17 +97,6 @@ var Fusion = function(client) {
     gammaPredictor.feed(e.gamma);
   });
   //XXX Use devicemotion angular velocity directly instead of deviceorientation (more reliable fire rate)
-
-  // Update screen orientation
-  var screenOrientation = window.orientation || 0;
-
-  _.on(window, 'orientationchange', function(e) {
-    screenOrientation = window.orientation;
-    // Prevent white border problem in Safari
-    _.defer(function() {
-      window.scrollTo(0, 0);
-    }, 500);
-  });
 
   var getDeviceRotation = function() {
     return {
@@ -141,7 +141,7 @@ var Fusion = function(client) {
     return braking;
   };
 
-  // Offset from gyro to compass
+  // Gyro offset from tracker orientation
   var getHeadingDiff = function() {
     var yAxis = new THREE.Vector3(0, 1, 0);
     var deviceTwist = Utils.getTwistAngle(getDeviceOrientation(), yAxis);

@@ -2,6 +2,7 @@ var _ = require('eakwell');
 var THREE = require('three');
 var jsfeat = require('jsfeat');
 
+var CV = require('./deps/cv.js');
 var Posit = require('./deps/posit.js').Posit;
 var Aruco = require('./deps/aruco.js');
 var VideoSource = require('./videoSource.js');
@@ -12,7 +13,7 @@ var Tracker = function(cb, width, height) {
 
   var maxFPS = 20;
   var markerSize = 48; // mm
-  var minCornerDistance = 10; // px
+  var minCornerDistance = 6; // px
 
   var source = new VideoSource(width, height);
   var detector = new Aruco.Detector();
@@ -174,38 +175,19 @@ var Tracker = function(cb, width, height) {
     };
   };
 
-  var isConvex = function(vertices) {
-    var sign = false;
-    var n = vertices.length;
-    for(var i = 0; i < n; i++) {
-      var dx1 = vertices[(i + 2) % n].x - vertices[(i+1) % n].x;
-      var dy1 = vertices[(i + 2) % n].y - vertices[(i + 1) % n].y;
-      var dx2 = vertices[i].x - vertices[(i + 1) % n].x;
-      var dy2 = vertices[i].y - vertices[(i + 1) % n].y;
-      var cross = dx1 * dy2 - dy1 * dx2;
-      if(i == 0) {
-        sign = cross > 0;
-      } else if(sign != (cross > 0)) {
-        return false;
-      }
-    }
-    return true;
-  };
-
   var distance = function(p1, p2) {
     return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
   };
 
-  var isWellformed = function(vertices) {
+  var isThin = function(vertices) {
     var lastDistance = 0;
     var n = vertices.length;
     for(var i = 0; i < n; i++) {
       var dist = distance(vertices[i], vertices[(i + 1) % n]);
-      if(dist < minCornerDistance) return false;
-      if(lastDistance && Math.abs(dist - lastDistance) > Math.min(dist, lastDistance) * 6) return false;
+      if(dist < minCornerDistance) return true;
+      if(lastDistance && Math.abs(dist - lastDistance) > Math.min(dist, lastDistance) * 10) return true;
       lastDistance = dist;
     }
-    return true;
   };
 
   var lastMarkers;
@@ -232,7 +214,7 @@ var Tracker = function(cb, width, height) {
         corner.y = point.y;
         return true;
       });
-      if(complete && isConvex(marker.corners) && isWellformed(marker.corners)) {
+      if(complete && CV.isContourConvex(marker.corners) && !isThin(marker.corners)) {
         orientMarker(marker);
         markers.push(marker);
       }
