@@ -11,9 +11,10 @@ var Tracker = function(cb, width, height) {
   width = width || 640;
   height = height || 480;
 
-  var maxFPS = 20;
   var markerSize = 48; // mm
-  var minCornerDistance = 6; // px
+
+  var maxMarkerAspectRatio = 10;
+  var maxMarkerPerspective = 1.5;
 
   var source = new VideoSource(width, height);
   var detector = new Aruco.Detector();
@@ -179,15 +180,23 @@ var Tracker = function(cb, width, height) {
     return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
   };
 
-  var isThin = function(vertices) {
-    var lastDistance = 0;
-    var n = vertices.length;
-    for(var i = 0; i < n; i++) {
-      var dist = distance(vertices[i], vertices[(i + 1) % n]);
-      if(dist < minCornerDistance) return true;
-      if(lastDistance && Math.abs(dist - lastDistance) > Math.min(dist, lastDistance) * 10) return true;
-      lastDistance = dist;
-    }
+  var increasingRatio = function(value) {
+    return value > 1 ? value : 1 / value;
+  };
+
+  var isWellformed = function(vertices) {
+    var distances = _.map(vertices, function(vertex, i) {
+      return distance(vertex, vertices[(i + 1) % vertices.length]);
+    });
+    var aspects = _.map(distances, function(dist, i) {
+      return increasingRatio(dist / distances[(i + 1) % distances.length]);
+    });
+    return !_.any(aspects, function(aspect, i) {
+      // Reject very thin shapes
+      if(aspect > maxMarkerAspectRatio) return true;
+      // Reject shapes with a single corner wide off
+      if(increasingRatio(aspect / aspects[(i + 1) % aspects.length]) > maxMarkerPerspective) return true;
+    });
   };
 
   var lastMarkers;
@@ -214,7 +223,7 @@ var Tracker = function(cb, width, height) {
         corner.y = point.y;
         return true;
       });
-      if(complete && CV.isContourConvex(marker.corners) && !isThin(marker.corners)) {
+      if(complete && CV.isContourConvex(marker.corners) && isWellformed(marker.corners)) {
         orientMarker(marker);
         markers.push(marker);
       }
