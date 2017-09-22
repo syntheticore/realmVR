@@ -1,4 +1,5 @@
 var _ = require('eakwell');
+var THREE = require('three');
 
 // Used on mobile device to receive
 // tracking data from the specified desktop
@@ -17,6 +18,9 @@ var Receiver = function(uuid) {
   // Emit track event when desktop sends data
   socket.on('track', function(result) {
     result.delay += networkDelay;
+    if(result.pose.hmd) result.pose.hmd.orientation = (new THREE.Quaternion()).fromArray(result.pose.hmd.orientation);
+    if(result.pose.leftHand) result.pose.leftHand.orientation = (new THREE.Quaternion()).fromArray(result.pose.leftHand.orientation);
+    if(result.pose.rightHand) result.pose.rightHand.orientation = (new THREE.Quaternion()).fromArray(result.pose.rightHand.orientation);
     self.emit('track', [result]);
   });
 

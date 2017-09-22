@@ -43,34 +43,44 @@ var Fusion = function(client) {
   rightPredictor.feed(new THREE.Vector3(-80, 120, 70));
   headPredictor.feed(new THREE.Vector3(250, 170, 100));
 
-  var absHmdRotation = new THREE.Euler();
+  var absHmdOrientation = new THREE.Quaternion();
+  var absLeftOrientation = new THREE.Quaternion();
+  var absRightOrientation = new THREE.Quaternion();
   var leftActive = false;
   var rightActive = false;
 
   client.on('track', function(result) {
-    leftPredictor.feed(result.pose.leftHand.position, result.delay);
-    rightPredictor.feed(result.pose.rightHand.position, result.delay);
-    headPredictor.feed(result.pose.hmd.position, result.delay);
-
-    absHmdRotation = result.pose.hmd.rotation;
-
-    leftActive = result.pose.leftHand.active;
-    rightActive = result.pose.rightHand.active;
+    if(result.pose.hmd) {
+      headPredictor.feed(result.pose.hmd.position, result.delay);
+      absHmdOrientation.copy(result.pose.hmd.orientation);
+    }
+    if(result.pose.leftHand) {
+      leftPredictor.feed(result.pose.leftHand.position, result.delay);
+      absLeftOrientation.copy(result.pose.leftHand.orientation);
+      leftActive = result.pose.leftHand.active;
+    }
+    if(result.pose.rightHand) {
+      rightPredictor.feed(result.pose.rightHand.position, result.delay);
+      absRightOrientation.copy(result.pose.rightHand.orientation);
+      rightActive = result.pose.rightHand.active;
+    }
   });
 
   var getTrackedPose = function() {
     return {
       left: {
         position: leftPredictor.predict(),
+        orientation: absLeftOrientation,
         active: leftActive
       },
       right: {
         position: rightPredictor.predict(),
+        orientation: absRightOrientation,
         active: rightActive
       },
       head: {
         position: headPredictor.predict(),
-        orientation: absHmdRotation
+        orientation: absHmdOrientation
       }
     };
   };
@@ -145,9 +155,11 @@ var Fusion = function(client) {
   var getHeadingDiff = function() {
     var yAxis = new THREE.Vector3(0, 1, 0);
     var deviceTwist = Utils.getTwistAngle(getDeviceOrientation(), yAxis);
-    var trackerOrientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation));
+    // var trackerOrientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdOrientation));
+    var trackerOrientation = absHmdOrientation;
     var trackerTwist = Utils.getTwistAngle(trackerOrientation, yAxis);
     return trackerTwist - deviceTwist + Math.PI;
+    // return Math.PI / 2;
   };
 
   var headingDivergence = 0;
@@ -167,7 +179,7 @@ var Fusion = function(client) {
     var headingDriftCorrection = Utils.quaternionFromHeadingRad(headingDivergence);
     self.body.head.orientation = headingDriftCorrection.multiply(orientation);
 
-    // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdRotation)).multiply(Utils.quaternionFromHeadingRad(Math.PI));
+    // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdOrientation)).multiply(Utils.quaternionFromHeadingRad(Math.PI));
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
@@ -192,6 +204,10 @@ var Fusion = function(client) {
     // Update hand velocities
     self.body.left.velocity.copy(self.body.left.position).sub(oldLeft);
     self.body.right.velocity.copy(self.body.right.position).sub(oldRight);
+
+    // Update hand orientations
+    self.body.left.orientation.copy(bodyAbs.left.orientation);
+    self.body.right.orientation.copy(bodyAbs.right.orientation);
 
     // Update hand triggers
     var lastLeftActive = self.body.left.active;

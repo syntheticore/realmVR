@@ -47,8 +47,10 @@ var Host = function(width, height, mobileUrl) {
 
   // Track body through webcam
   var tracker = new Tracker(function(result) {
+    if(result.pose.hmd) result.pose.hmd.orientation = result.pose.hmd.orientation.toArray();
+    if(result.pose.leftHand) result.pose.leftHand.orientation = result.pose.leftHand.orientation.toArray();
+    if(result.pose.rightHand) result.pose.rightHand.orientation = result.pose.rightHand.orientation.toArray();
     // Broadcast coordinates to registered mobile devices
-    if(!result.pose.hmd || !result.pose.hmd.position) return;
     socket.emit('track', {
       uuid: self.uuid,
       pose: result.pose,

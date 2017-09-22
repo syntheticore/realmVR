@@ -22,7 +22,8 @@ var Tracker = function(cb, width, height) {
   var posit = new Posit(markerSize, width);
 
   var cameraPosition = new THREE.Vector3();
-  var cameraRotation = new THREE.Euler();
+  // var cameraRotation = new THREE.Euler();
+  var cameraOrientation = new THREE.Quaternion();
   var worldScale = 1;
 
   var hmdWidth = 145;
@@ -32,23 +33,28 @@ var Tracker = function(cb, width, height) {
     testCube: {
       top: {
         id: 869,
-        baseRotation: new THREE.Quaternion()
+        baseRotation: new THREE.Quaternion(),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       },
       bottom: {
         id: 954,
-        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       },
       front: {
         id: 136,
-        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       },
       left: {
         id: 402,
-        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2)
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       },
       right: {
         id: 661,
-        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)
+        baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       }
     },
     hmd: {
@@ -71,6 +77,13 @@ var Tracker = function(cb, width, height) {
         id: 9,
         baseRotation: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2),
         baseOffset: new THREE.Vector3(0, 0, -hmdWidth / 2)
+      }
+    },
+    leftHand: {
+      front: {
+        id: 269,
+        baseRotation: new THREE.Quaternion(),
+        baseOffset: new THREE.Vector3(0, 0, 0)
       }
     }
   };
@@ -112,12 +125,13 @@ var Tracker = function(cb, width, height) {
   };
 
   var cam2world = function(vec) {
-    return vec.applyEuler(cameraRotation).add(cameraPosition).multiplyScalar(worldScale);
+    // return vec.applyEuler(cameraOrientation).add(cameraPosition).multiplyScalar(worldScale);
+    return vec.multiplyScalar(worldScale).applyQuaternion(cameraOrientation).add(cameraPosition);
   };
 
-  var invertEuler = function(euler) {
-    return euler.setFromQuaternion((new THREE.Quaternion()).setFromEuler(euler).inverse())
-  };
+  // var invertEuler = function(euler) {
+  //   return euler.setFromQuaternion((new THREE.Quaternion()).setFromEuler(euler).inverse());
+  // };
 
   // Return the real world position and
   // orientation of the given marker
@@ -163,15 +177,18 @@ var Tracker = function(cb, width, height) {
       return {
         center: def.baseOffset.clone().applyEuler(marker.rotation).add(marker.position),
         rotation: (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(marker.rotation).multiply(def.baseRotation)),
-        quality: 1 / marker.error + 5
+        quality: 1 //1 / marker.error + 5
       };
     });
     cube = _.compact(_.values(cube));
     if(!cube.length) return null;
     var qualities = _.map(cube, 'quality');
+    var position = vecAverage(_.map(cube, 'center'), qualities);
+    var rotation = vecAverage(_.invoke(_.map(cube, 'rotation'), 'toVector3'));
     return {
-      position: vecAverage(_.map(cube, 'center'), qualities),
-      rotation: vecAverage(_.invoke(_.map(cube, 'rotation'), 'toVector3')), //XXX interpolate quaternions
+      position: position,
+      // rotation: rotation, //XXX interpolate quaternions
+      orientation: (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(rotation)),
       active: false
     };
   };
@@ -181,7 +198,7 @@ var Tracker = function(cb, width, height) {
   };
 
   var increasingRatio = function(value) {
-    return value > 1 ? value : 1 / value;
+    return value >= 1 ? value : 1 / value;
   };
 
   var isWellformed = function(vertices) {
@@ -237,8 +254,8 @@ var Tracker = function(cb, width, height) {
     var markers = getMarkers(imageData);
     motionComplete(markers, imageData);
     var hmd = getPose(markers, cubeDefs.hmd);
-    var left = getPose(markers, cubeDefs.hmd);
-    var right = getPose(markers, cubeDefs.hmd);
+    var left = getPose(markers, cubeDefs.leftHand);
+    var right = getPose(markers, cubeDefs.testCube);
     // Draw markers back onto canvas
     drawMarkers(markers, source.context);
     return {
@@ -250,13 +267,15 @@ var Tracker = function(cb, width, height) {
   };
 
   var calibrate = function(imageData) {
-    cameraPosition = new THREE.Vector3(100, 170, 100);
+    // return;
+    cameraPosition = new THREE.Vector3(100, 170, 600);
     worldScale = 1;
     return;
     var body = getBody(imageData);
     if(!body.hmd) return; //XXX
-    cameraPosition = body.hmd.position.clone().negate(); //copy
-    cameraRotation = invertEuler(body.hmd.rotation.clone()); // copy
+    cameraPosition = body.hmd.position.clone().negate();
+    // cameraOrientation = invertEuler(body.hmd.rotation.clone());
+    cameraOrientation = body.hmd.orientation.clone().inverse();
     worldScale = 1 / cameraPosition.length();
   };
 
@@ -272,8 +291,10 @@ var Tracker = function(cb, width, height) {
       self.running = true;
       return source.run(function(image) {
         if(lastImageData) {
+          var body = getBody(image.data);
+          if(!(body.hmd || body.leftHand || body.rightHand)) return;
           cb({
-            pose: getBody(image.data),
+            pose: body,
             timestamp: image.timestamp
           });
         }
