@@ -154,11 +154,11 @@ THREE.StereoEffect = function(renderer, scene, camera) {
     _inner = _halfFocalWidth * 2.0 * _ndfl * _innerFactor;
 
     // left
-    _cameraL.projectionMatrix.makeFrustum(
+    _cameraL.projectionMatrix.makePerspective(
       - _outer,
       _inner,
-      _bottom,
       _top,
+      _bottom,
       camera.near,
       camera.far
     );
@@ -168,11 +168,11 @@ THREE.StereoEffect = function(renderer, scene, camera) {
     _cameraL.translateX(- this.eyeSeparation / 2.0);
 
     // right
-    _cameraR.projectionMatrix.makeFrustum(
+    _cameraR.projectionMatrix.makePerspective(
       - _inner,
       _outer,
-      _bottom,
       _top,
+      _bottom,
       camera.near,
       camera.far
     );
@@ -183,7 +183,7 @@ THREE.StereoEffect = function(renderer, scene, camera) {
 
     //
     renderer.clear();
-    renderer.enableScissorTest(true);
+    renderer.setScissorTest(true);
 
     renderer.setRenderTarget(readBuffer);
 
@@ -197,7 +197,7 @@ THREE.StereoEffect = function(renderer, scene, camera) {
 
     renderer.setViewport(0, 0, 2 * _width, _height);
 
-    renderer.enableScissorTest(false);
+    renderer.setScissorTest(false);
   };
 };
 
@@ -298,7 +298,7 @@ THREE.StereoEffect = function(renderer, scene, camera) {
 //     _cameraR.translateX( this.eyeSeparation / 2.0 );
 
 //     renderer.clear();
-//     renderer.enableScissorTest( true );
+//     renderer.setScissorTest( true );
 
 //     // Viewport can be changed during setRenderTarget call
 //     // (which gets called from render() function).  Bug?
@@ -314,7 +314,7 @@ THREE.StereoEffect = function(renderer, scene, camera) {
 
 //     renderer.setViewport(0, 0, 2 * _width, _height);
 
-//     renderer.enableScissorTest( false );
+//     renderer.setScissorTest( false );
 //     // end StereoEffect
 
 //     if ( this.clearColor ) {

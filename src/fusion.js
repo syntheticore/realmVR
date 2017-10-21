@@ -159,7 +159,7 @@ var Fusion = function(client) {
     var trackerOrientation = absHmdOrientation;
     var trackerTwist = Utils.getTwistAngle(trackerOrientation, yAxis);
     return trackerTwist - deviceTwist + Math.PI;
-    // return Math.PI / 2;
+    return Math.PI / 2;
   };
 
   var headingDivergence = 0;
