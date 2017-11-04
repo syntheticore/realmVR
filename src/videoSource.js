@@ -66,32 +66,34 @@ var VideoSource = function(width, height) {
     });
   };
 
-  var init = _.promise(function(ok, fail) {
-    if(!navigator.mediaDevices) {
-      fail("getUserMedia() not supported.");
-      return;
-    }
-    navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        width: width,
-        height: height,
-        frameRate: 60
+  var init = function() {
+    return _.promise(function(ok, fail) {
+      if(!navigator.mediaDevices) {
+        fail("getUserMedia() not supported.");
+        return;
       }
-    }).then(function(stream) {
-      video.src = window.URL.createObjectURL(stream);
-      video.onloadedmetadata = function() {
-        testFramerate().then(function(_grabInterval) {
-          grabInterval = _grabInterval;
-          console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
-          ok();
-        });
-      };
-    }).catch(function(err) {
-      console.error(err);
-      fail(err);
+      navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          width: width,
+          height: height,
+          frameRate: 60
+        }
+      }).then(function(stream) {
+        video.src = window.URL.createObjectURL(stream);
+        video.onloadedmetadata = function() {
+          testFramerate().then(function(_grabInterval) {
+            grabInterval = _grabInterval;
+            console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
+            ok();
+          });
+        };
+      }).catch(function(err) {
+        console.error(err);
+        fail(err);
+      });
     });
-  });
+  };
 
   var running = false;
 
@@ -100,17 +102,15 @@ var VideoSource = function(width, height) {
     context: context,
 
     play: function() {
-      return init.then(function() {
+      return init().then(function() {
         video.play();
         running = true;
       });
     },
 
     pause: function() {
-      return init.then(function() {
-        video.pause();
-        running = false;
-      });
+      video.pause();
+      running = false;
     },
 
     run: function(cb) {

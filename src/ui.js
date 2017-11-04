@@ -1,0 +1,265 @@
+var _ = require('eakwell');
+var Host = require('./host.js');
+var THREE = require('./deps/threeAddons.js');
+
+var UI = function() {
+  var self = this;
+  _.eventHandling(self);
+
+  var width = 640;
+  var height = 480;
+
+  var host = new Host(width, height); 
+  var glView = new GlView(width, height);
+
+  var mainTemplate = `
+    <div class="realm--vr">
+      <style type="text/css">
+        .realm--vr {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(255,255,255, 0.7);
+          display: flex;
+          justify-items: center;
+          align-items: center;
+        }
+        .realm--vr .track--view {
+          overflow: hidden;
+          margin: auto;
+          background: #fff;
+          color: $black;
+          padding: 2rem;
+          border-radius: 3px;
+          -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          border: 1px solid #d3d3d3;
+        }
+        .realm--vr .track--view header {
+          width: 640px;
+          margin-bottom: 2rem;
+        }
+        .realm--vr .track--view .close {
+          float: right;
+        }
+        .realm--vr .track--view header h2 {
+          font-size: 1.6rem;
+          display: inline-block;
+          color: #000;
+          border-bottom: 2px solid #37a5b7;
+        }
+        .realm--vr .track--view header p {
+          margin: .5rem 0;
+          line-height: 1.4;
+          width: 370px;
+          font-weight: 500;
+        }
+        .realm--vr .track--view .display-area {
+          position: relative;
+          display: -webkit-box;
+          display: -moz-box;
+          display: -webkit-flex;
+          display: -ms-flexbox;
+          display: box;
+          display: flex;
+          justify-items: center;
+        }
+        .realm--vr .track--view .devices ul {
+          border: 1px solid #d3d3d3;
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .realm--vr .track--view .devices li {
+          padding: 1rem;
+          cursor: pointer;
+        }
+        .realm--vr .track--view .devices li:hover {
+          background: #f5f5f5;
+        }
+        .realm--vr .track--view .devices li:active {
+          background: #d3d3d3;
+          color: #fff;
+        }
+        .realm--vr .track--view .devices li + li {
+          border-top: 1px solid #f5f5f5;
+        }
+        .realm--vr .track--view .display {
+          overflow: hidden;
+          margin: auto;
+          border-radius: 3px;
+        }
+        .realm--vr .track--view .gl {
+          position: absolute;
+          background: rgba(255, 255, 255, 0.7);
+          top: 0;
+          left: 0;
+        }
+      </style>
+
+      <div class="track--view">
+        <header>
+          <button class="close">X Cancel</button>
+          <h2></h2>
+          <p></p>
+        </header>
+        <div class="display-area">
+          <div class="display"></div>
+          <div class="gl"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  var evalTemplate = function(tmpl) {
+    var div = document.createElement('div');
+    div.innerHTML = tmpl;
+    return div.childNodes[1];
+  };
+
+  var updateView = function(view, data) {
+    view.querySelector('h2').textContent = data.title;
+    view.querySelector('p').textContent = data.description;
+    if(data.display) {
+      var display = view.querySelector('.display');
+      display.innerHTML = '';
+      display.appendChild(data.display);
+    }
+    if(data.closeCb) {
+      view.querySelector('.close').addEventListener(data.closeCb, false);
+    }
+  };
+
+  self.startTracker = function() {
+    var mainView = evalTemplate(mainTemplate);
+    updateView(mainView, {
+      title: 'Welcome to realmVR',
+      description: 'Please wait while the driver is loading...',
+      closeCb: function() {
+        host.stop();
+        document.body.removeChild(mainView);
+      }
+    });
+    document.body.appendChild(mainView);
+
+    host.on('status', function(status) {
+      updateView(mainView, status);
+    });
+
+    host.on('clientConnected', function() {
+      mainView.querySelector('.gl').appendChild(glView.domElement);
+    });
+
+    host.on('track', function(pose) {
+      glView.clear();
+      _.each(pose.markers, function(marker) {
+        glView.createPlane(marker);
+      });
+      pose.hmd && glView.updateHMD(pose.hmd);
+      pose.leftHand && glView.updateHand(pose.leftHand);
+      glView.render();
+    });
+
+    host.start();
+  };
+};
+
+var GlView = function(width, height) {
+  var self = this;
+
+  var renderer = new THREE.WebGLRenderer({alpha: true, antialiasing: true});
+  // renderer.setClearColor(0xffff00, 1);
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(2);
+  self.domElement = renderer.domElement;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(40, width / height, 1, 10000);
+  var disposables = [];
+
+  var createModel = function(width, height, depth) {
+    var geometry = new THREE.BoxGeometry(width, height, depth);
+    // var material = new THREE.MeshPhongMaterial();
+    var colors = ['red', 'red', 'green', 'green', 'blue', 'black'];
+    var j = 0;
+    _.each(colors, function(color) {
+      geometry.faces[j].color.set(color);
+      geometry.faces[j + 1].color.set(color);
+      j += 2;
+    });
+    var material = new THREE.MeshBasicMaterial({vertexColors: THREE.FaceColors});
+    material.transparent = true;
+    material.opacity = 0.5;
+    var model = new THREE.Mesh(geometry, material);
+    var axisHelper = new THREE.AxesHelper(150);
+    scene.add(model);
+    model.add(axisHelper);
+    return model;
+  };
+
+  var applyTransform = function(obj, transform) {
+    obj.position.x = transform.position.x;
+    obj.position.y = transform.position.y;
+    obj.position.z = transform.position.z;
+    if(transform.orientation) {
+      obj.quaternion.copy(transform.orientation);
+    } else {
+      obj.rotation.x = transform.rotation.x;
+      obj.rotation.y = transform.rotation.y;
+      obj.rotation.z = transform.rotation.z;
+    }
+  };
+
+  var updateTransform = function(obj, transform) {
+    obj.position.x = obj.position.x + (transform.position.x - obj.position.x) * 0.99;
+    obj.position.y = obj.position.y + (transform.position.y - obj.position.y) * 0.99;
+    obj.position.z = obj.position.z + (transform.position.z - obj.position.z) * 0.99;
+    // obj.rotation.x = obj.rotation.x + (transform.rotation.x - obj.rotation.x) + 0.2;
+    // obj.rotation.y = obj.rotation.y + (transform.rotation.y - obj.rotation.y) + 0.2;
+    // obj.rotation.z = obj.rotation.z + (transform.rotation.z - obj.rotation.z) + 0.2;
+    if(transform.orientation) {
+      obj.quaternion.copy(transform.orientation);
+    } else {
+      obj.rotation.x = transform.rotation.x;
+      obj.rotation.y = transform.rotation.y;
+      obj.rotation.z = transform.rotation.z;
+    }
+  };
+
+  self.createPlane = function(marker) {
+    var geometry = new THREE.PlaneGeometry(10, 10);
+    var material = new THREE.MeshNormalMaterial();
+    var plane = new THREE.Mesh(geometry, material);
+    applyTransform(plane, marker);
+    var axisHelper = new THREE.AxesHelper(50);
+    applyTransform(axisHelper, marker);
+    scene.add(axisHelper);
+    // scene.add(plane);
+    disposables = _.union(disposables, [axisHelper, plane]);
+  };
+
+  self.updateHMD = function(hmd) {
+    if(!self.hmd) self.hmd = createModel(145, 80, 80);
+    updateTransform(self.hmd, hmd);
+  };
+
+  self.updateHand = function(hand) {
+    if(!self.hand) self.hand = createModel(40, 40, 40);
+    updateTransform(self.hand, hand);
+  };
+
+  self.clear = function() {
+    _.each(disposables, function(disposable) {
+      scene.remove(disposable); 
+    });
+    disposables = [];
+  };
+    
+  self.render = function() {
+    renderer.clear();
+    renderer.render(scene, camera);
+  };
+};
+
+module.exports = UI;

@@ -5,10 +5,12 @@ var THREE = require('./deps/threeAddons.js');
 
 var realmVR = {
   THREE: THREE,
+  UI: require('./ui.js'),
   Host: require('./host.js'),
   Device: require('./device.js'),
   Renderer: require('./renderer.js'),
   Utils: require('./utils.js'),
+  Shim: require('./shim.js'),
 
   // Called from [server] to allow for web socket
   // communication between desktop and mobile devices
