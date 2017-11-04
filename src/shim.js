@@ -6,9 +6,10 @@ var TrackerUI = require('./ui.js');
 var RealmVRDisplay = function() {
   var self = this;
 
+  var sessionId = (new URL(window.location.href)).searchParams.get('realm-vr-session');
+
   var canvas;
-  var displayLayers = [];
-  var isDesktop = true;
+  // var displayLayers = [];
 
   self.displayId = 'realmVR';
   self.displayName = 'realm VR';
@@ -73,32 +74,37 @@ var RealmVRDisplay = function() {
   };
 
   self.getLayers = function() {
-    return displayLayers;
+    return [{
+      leftBounds: [0.0, 0.0, 0.5, 1.0],
+      rightBounds: [0.5, 0.0, 0.5, 1.0],
+      source: canvas
+    }];
+    // return displayLayers;
   };
 
   self.resetPose = function() {
-    // Resets the pose for this RealmVRDisplay, treating its current VRPose.position and VRPose.orientation as the "origin/zero" values.
+    // Resets the pose for this VRDisplay, treating its current VRPose.position and VRPose.orientation as the "origin/zero" values.
     // This corresponds to the heading correction in fusion calibration
   };
 
-  self.requestAnimationFrame = isDesktop ? _.noop : window.requestAnimationFrame;
-  self.cancelAnimationFrame  = isDesktop ? _.noop : window.cancelAnimationFrame;
+  self.requestAnimationFrame = sessionId ? window.requestAnimationFrame.bind(window) : _.noop;
+  self.cancelAnimationFrame  = sessionId ? window.cancelAnimationFrame.bind(window) : _.noop;
 
   self.requestPresent = function(layers) {
     return new Promise(function(ok, fail) {
       if(!self.capabilities.canPresent) return fail('Cannot present');
       if(layers.length > self.capabilities.maxLayers) return fail('Too many layers given');
-        if(isDesktop) {
-          var ui = new TrackerUI();
-          ui.startTracker();
-          fail('Presentation happens on the mobile device');
-        } else {
-          displayLayers = layers;
+        if(sessionId) {
+          // displayLayers = layers;
           setCanvas(layers[0].source);
           var device = new Device();
           device.setup();
           self.isPresenting = true;
           ok();
+        } else {
+          var ui = new TrackerUI();
+          ui.startTracker();
+          fail('Presentation happens on the mobile device');
         }
     });
   };
@@ -106,7 +112,7 @@ var RealmVRDisplay = function() {
   self.exitPresent = function() {
     return new Promise(function(ok, fail) {
       if(!self.isPresenting) return fail('Not presenting');
-      displayLayers = [];
+      // displayLayers = [];
       setCanvas(null);
       self.isPresenting = false;
       ok();
@@ -114,12 +120,7 @@ var RealmVRDisplay = function() {
   };
 
   self.submitFrame = function() {
-    // var layer = {
-    //   leftBounds: [0.0, 0.0, 0.5, 1.0],
-    //   rightBounds: [0.5, 0.0, 0.5, 1.0],
-    //   source: null
-    // };
-    //XXX render lens distortion
+    //XXX render lens distortion correction
   };
 };
 

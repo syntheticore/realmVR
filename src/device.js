@@ -8,7 +8,7 @@ var Device = function() {
   _.eventHandling(self);
 
   var url = new URL(window.location.href);
-  var uuid = url.searchParams.get('realm-session') || 1;
+  var uuid = url.searchParams.get('realm-vr-session') || 1;
 
   self.fov = 70;
   self.eyeSeparation = 6.5;

@@ -66,25 +66,6 @@ var UI = function() {
           display: flex;
           justify-items: center;
         }
-        .realm--vr .track--view .devices ul {
-          border: 1px solid #d3d3d3;
-          border-radius: 3px;
-          overflow: hidden;
-        }
-        .realm--vr .track--view .devices li {
-          padding: 1rem;
-          cursor: pointer;
-        }
-        .realm--vr .track--view .devices li:hover {
-          background: #f5f5f5;
-        }
-        .realm--vr .track--view .devices li:active {
-          background: #d3d3d3;
-          color: #fff;
-        }
-        .realm--vr .track--view .devices li + li {
-          border-top: 1px solid #f5f5f5;
-        }
         .realm--vr .track--view .display {
           overflow: hidden;
           margin: auto;

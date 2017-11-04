@@ -66,7 +66,7 @@ var Host = function(width, height, mobileUrl) {
     var canvas = document.createElement('canvas');
     qr.canvas({
       canvas: canvas,
-      value: mobileUrl + self.uuid + '?realm-session=' + self.uuid,
+      value: mobileUrl + self.uuid + '?realm-vr-session=' + self.uuid,
       size: 9
     });
     return canvas;
