@@ -85,7 +85,7 @@ var VideoSource = function(width, height) {
           testFramerate().then(function(_grabInterval) {
             grabInterval = _grabInterval;
             console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
-            ok();
+            ok(stream);
           });
         };
       }).catch(function(err) {
@@ -95,6 +95,7 @@ var VideoSource = function(width, height) {
     });
   };
 
+  var stream;
   var running = false;
 
   var self = {
@@ -102,7 +103,8 @@ var VideoSource = function(width, height) {
     context: context,
 
     play: function() {
-      return init().then(function() {
+      stream = stream || init();
+      return stream.then(function() {
         video.play();
         running = true;
       });
@@ -113,14 +115,25 @@ var VideoSource = function(width, height) {
       running = false;
     },
 
+    stop: function() {
+      if(!stream) return;
+      video.pause();
+      s.then(function(stream) {
+        stream.getTracks().forEach(track => track.stop());
+      });
+      running = false;
+      stream = null;
+    },
+
     run: function(cb) {
       return self.play().then(function() {
         var loop = function() {
           if(!running) return;
           setTimeout(loop, grabInterval);
-          cb({
+          var data = self.getData();
+          data && cb({
             timestamp: Date.now(),
-            data: self.getData()
+            data: data
           });
         };
         loop();

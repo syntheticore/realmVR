@@ -304,15 +304,17 @@ var Tracker = function(cb, width, height) {
 
     stop: function() {
       self.running = false;
-      return source.pause();
+      return source.stop();
     },
 
     calibrate: function(cb) {
       source.play().then(function() {
+        var data;
         _.waitFor(function() {
-          return source.getData();
+          data = source.getData();
+          return data;
         }, function() {
-          calibrate(source.getData());
+          calibrate(data);
           cb();
         });
       });
