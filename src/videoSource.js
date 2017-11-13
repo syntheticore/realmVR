@@ -118,7 +118,7 @@ var VideoSource = function(width, height) {
     stop: function() {
       if(!stream) return;
       video.pause();
-      s.then(function(stream) {
+      stream.then(function(stream) {
         stream.getTracks().forEach(track => track.stop());
       });
       running = false;

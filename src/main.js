@@ -26,23 +26,23 @@ var realmVR = {
           sessions[uuid].clients.push(socket);
           // Tell host about client
           sessions[uuid].host.emit('register');
-          console.log("RealmVR: Device registered for ID " + uuid);
+          console.log("realmVR: Device registered for ID " + uuid);
         } else {
-          console.error("RealmVR: Device tried to register for expired ID " + uuid);
+          console.error("realmVR: Device tried to register for expired ID " + uuid);
         }
       });
       // Mobile device has finished calibration
       socket.on('hmdPlaced', function(uuid){
         if(sessions[uuid]) {
           sessions[uuid].host.emit('hmdPlaced');
-          console.log("RealmVR: Device has calibrated for ID " + uuid);
+          console.log("realmVR: Device has calibrated for ID " + uuid);
         }
       });
       // Player has defined workspace bounds
       socket.on('playspaceFinished', function(uuid){
         if(sessions[uuid]) {
           sessions[uuid].host.emit('playspaceFinished');
-          console.log("RealmVR: Player has defined workspace for ID " + uuid);
+          console.log("realmVR: Player has defined workspace for ID " + uuid);
         }
       });
       // Desktop sends data to broadcast
@@ -53,7 +53,7 @@ var realmVR = {
             host: socket,
             clients: []
           };
-          console.log("RealmVR: Desktop connected with ID " + data.uuid);
+          console.log("realmVR: Desktop connected with ID " + data.uuid);
         // Dispatch data to registered clients in the same session
         } else {
           _.each(sessions[data.uuid].clients, function(sock) {
@@ -80,7 +80,7 @@ var realmVR = {
             return;
           }
         });
-        console.log("RealmVR: Client disconnected");
+        console.log("realmVR: Client disconnected");
       });
       socket.on('debug', function(txt){
         console.log(txt);

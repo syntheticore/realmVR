@@ -6,7 +6,7 @@ var qr = _.onClient() ? require('browser-qr-js') : undefined;
 
 // Used in desktop browser to broadcast
 // tracking data to connected mobile devices
-var Host = function(width, height, mobileUrl) {
+var Host = function(width, height, mobileUrl, startSelector) {
   var self = this;
   _.eventHandling(self);
 
@@ -64,9 +64,12 @@ var Host = function(width, height, mobileUrl) {
 
   var makeQRCode = function() {
     var canvas = document.createElement('canvas');
+    var url = mobileUrl + self.uuid + '?realm-vr-session=' + self.uuid;
+    if(startSelector) url += '&realm-vr-selector=' + startSelector;
+    console.log(url);
     qr.canvas({
       canvas: canvas,
-      value: mobileUrl + self.uuid + '?realm-vr-session=' + self.uuid,
+      value: url,
       size: 9
     });
     return canvas;

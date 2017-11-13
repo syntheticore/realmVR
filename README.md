@@ -1,4 +1,4 @@
-# RealmVR
+# realmVR
 
 Positional tracking for Google Cardboard
 

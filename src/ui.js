@@ -2,14 +2,14 @@ var _ = require('eakwell');
 var Host = require('./host.js');
 var THREE = require('./deps/threeAddons.js');
 
-var UI = function() {
+var UI = function(startSelector) {
   var self = this;
   _.eventHandling(self);
 
   var width = 640;
   var height = 480;
 
-  var host = new Host(width, height); 
+  var host = new Host(width, height, null, startSelector); 
   var glView = new GlView(width, height);
 
   var mainTemplate = `
@@ -25,17 +25,37 @@ var UI = function() {
           display: flex;
           justify-items: center;
           align-items: center;
+          font-family: 'Neue Helvetica', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
         }
         .realm--vr .track--view {
           overflow: hidden;
           margin: auto;
           background: #fff;
-          color: $black;
           padding: 2rem;
           border-radius: 3px;
-          -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          border: 1px solid #d3d3d3;
+          border: 1px solid #cacaca;
+        }
+        .realm--vr .track--view button {
+          border: 1px solid #cacaca;
+          background: white;
+          font-size: 1rem;
+          font-weight: 600;
+          color: gray;
+          padding: 0.5rem 1rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          outline: none;
+          border-radius: 2px;
+          margin: 0;
+        }
+        .realm--vr .track--view button:hover {
+          color: #383838;
+          box-shadow: 0 1px 2px rgba(0,0,0, 0.15);
+          text-decoration: none;
+        }
+        .realm--vr .track--view button:active {
+          box-shadow: inset 0 1px 2px rgba(0,0,0, 0.15);
         }
         .realm--vr .track--view header {
           width: 640px;
@@ -44,25 +64,22 @@ var UI = function() {
         .realm--vr .track--view .close {
           float: right;
         }
-        .realm--vr .track--view header h2 {
+        .realm--vr .track--view header h1 {
           font-size: 1.6rem;
           display: inline-block;
-          color: #000;
+          color: #383838;
           border-bottom: 2px solid #37a5b7;
         }
         .realm--vr .track--view header p {
           margin: .5rem 0;
           line-height: 1.4;
           width: 370px;
+          font-size: 1.1rem;
           font-weight: 500;
+          color: #5d5d5d;
         }
         .realm--vr .track--view .display-area {
           position: relative;
-          display: -webkit-box;
-          display: -moz-box;
-          display: -webkit-flex;
-          display: -ms-flexbox;
-          display: box;
           display: flex;
           justify-items: center;
         }
@@ -82,7 +99,7 @@ var UI = function() {
       <div class="track--view">
         <header>
           <button class="close">X Cancel</button>
-          <h2></h2>
+          <h1></h1>
           <p></p>
         </header>
         <div class="display-area">
@@ -100,7 +117,7 @@ var UI = function() {
   };
 
   var updateView = function(view, data) {
-    view.querySelector('h2').textContent = data.title;
+    view.querySelector('h1').textContent = data.title;
     view.querySelector('p').textContent = data.description;
     if(data.display) {
       var display = view.querySelector('.display');
@@ -108,7 +125,7 @@ var UI = function() {
       display.appendChild(data.display);
     }
     if(data.closeCb) {
-      view.querySelector('.close').addEventListener(data.closeCb, false);
+      _.once(view.querySelector('.close'), 'click', data.closeCb);
     }
   };
 

@@ -6,10 +6,9 @@ var TrackerUI = require('./ui.js');
 var RealmVRDisplay = function() {
   var self = this;
 
-  var sessionId = (new URL(window.location.href)).searchParams.get('realm-vr-session');
-
   var canvas;
   // var displayLayers = [];
+  var sessionId = getSessionId();
 
   self.displayId = 'realmVR';
   self.displayName = 'realm VR';
@@ -44,6 +43,13 @@ var RealmVRDisplay = function() {
     canvas.style.left = 0;
     canvas.style.right = 0;
     canvas.style['z-index'] = 9999;
+  };
+
+  var getSelector = function(elem) {
+    var parent = elem.parentNode;
+    if(elem === document.body) return '';
+    var index = '' + Array.prototype.indexOf.call(parent.children, elem);
+    return getSelector(parent) + index;
   };
 
   self.getEyeParameters = function() {
@@ -102,7 +108,8 @@ var RealmVRDisplay = function() {
           self.isPresenting = true;
           ok();
         } else {
-          var ui = new TrackerUI();
+          var selector = getSelector(window.event.target);
+          var ui = new TrackerUI(selector);
           ui.startTracker();
           fail('Presentation happens on the mobile device');
         }
@@ -124,20 +131,52 @@ var RealmVRDisplay = function() {
   };
 };
 
+var getSessionId = function() {
+  return (new URL(window.location.href)).searchParams.get('realm-vr-session');
+};
+
+var getElement = function(selector) {
+  var elem = document.body;
+  _.each(selector, function(char) {
+    var index = parseInt(char);
+    elem = elem.childNodes[index];
+  });
+  return elem;
+};
+
+var enterVR = function() {
+  var url = new URL(window.location.href);
+  var startSelector = url.searchParams.get('realm-vr-selector');
+  if(!startSelector) return;
+  var button = getElement(startSelector);
+  setTimeout(function() {
+    button.click();
+  }, 1000 * 4);
+};
+
+var installDriver = function() {
+  var realmDisplay = new RealmVRDisplay();
+  var getVRDisplays = navigator.getVRDisplays || function() { return Promise.resolve([]) }
+
+  navigator.getVRDisplays = function() {
+    return getVRDisplays().then(function(displays) {
+      if(getSessionId()) {
+        displays = [];
+        setTimeout(enterVR, 0);
+      }
+      displays.push(realmDisplay);
+      return displays;
+    });
+  };
+
+  VRFrameData = Object;
+};
+
 module.exports = {
   RealmVRDisplay: RealmVRDisplay,
 
   shim: function() {
-    var realmDisplay = new RealmVRDisplay();
-    var getVRDisplays = navigator.getVRDisplays;
-
-    navigator.getVRDisplays = function() {
-      if(!getVRDisplays) return [realmDisplay];
-      return getVRDisplays().then(function(displays) {
-        displays.push(realmDisplay);
-        return displays;
-      });
-    };
+    installDriver();
   }
 };
 
