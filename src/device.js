@@ -12,7 +12,6 @@ var Device = function() {
 
   self.fov = 70;
   self.eyeSeparation = 6.5;
-  self.deviceHeadDistance = 12;
 
   var client = new Client(sessionId);
   var posEngine = new Fusion(client);
@@ -46,7 +45,7 @@ var Device = function() {
         // by pressing the headset button in three different locations
         var handler = self.on('headsetButtonPressed', function() {
           self.bounds.push(self.getState().head.position.clone().setY(0))
-          if(self.bounds.length == 1) {
+          if(self.bounds.length == 3) {
             self.off(handler);
             client.playspaceFinished();
             ok();

@@ -17,6 +17,7 @@ var UI = function(startSelector) {
       <style type="text/css">
         .realm--vr {
           position: fixed;
+          z-index: 101;
           top: 0;
           left: 0;
           right: 0;

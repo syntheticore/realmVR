@@ -40,8 +40,8 @@ var RealmVRDisplay = function() {
     canvas.style.position = 'fixed';
     canvas.style.top = 0;
     canvas.style.bottom = 0;
-    canvas.style.left = 0;
-    canvas.style.right = 0;
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
     canvas.style['z-index'] = 9999;
   };
 
@@ -149,9 +149,7 @@ var enterVR = function() {
   var startSelector = url.searchParams.get('realm-vr-selector');
   if(!startSelector) return;
   var button = getElement(startSelector);
-  setTimeout(function() {
-    button.click();
-  }, 1000 * 4);
+  if(button.tagName == 'BUTTON') button.click();
 };
 
 var installDriver = function() {
