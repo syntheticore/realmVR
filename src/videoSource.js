@@ -5,6 +5,7 @@ var _ = require('eakwell');
 var VideoSource = function(width, height) {
   var numTestFrames = 60;
   var grabInterval = 1000 / 60;
+  var compareBufferSize = 8;
 
   var video = document.createElement('video');
   video.width = width;
@@ -82,17 +83,26 @@ var VideoSource = function(width, height) {
       }).then(function(stream) {
         video.src = window.URL.createObjectURL(stream);
         video.onloadedmetadata = function() {
-          testFramerate().then(function(_grabInterval) {
-            grabInterval = _grabInterval;
-            console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
+          // testFramerate().then(function(_grabInterval) {
+          //   grabInterval = _grabInterval;
+          //   console.log('Grabbing frames at ' + Math.round(1000 / _grabInterval) + ' FPS');
             ok(stream);
-          });
+          // });
         };
       }).catch(function(err) {
         console.error(err);
         fail(err);
       });
     });
+  };
+
+  var lastBuffer;
+
+  var getFreshFrame = function() {
+    var buffer = self.getData(compareBufferSize, compareBufferSize);
+    var different = lastBuffer && compareFrames(buffer, lastBuffer);
+    lastBuffer = buffer;
+    if(different) return self.getData();
   };
 
   var stream;
@@ -129,10 +139,12 @@ var VideoSource = function(width, height) {
       return self.play().then(function() {
         var loop = function() {
           if(!running) return;
-          setTimeout(loop, grabInterval);
-          var data = self.getData();
+          // setTimeout(loop, grabInterval);
+          window.requestAnimationFrame(loop);
+          var timestamp = Date.now();
+          var data = getFreshFrame();
           data && cb({
-            timestamp: Date.now(),
+            timestamp: timestamp,
             data: data
           });
         };
@@ -140,11 +152,12 @@ var VideoSource = function(width, height) {
       });
     },
 
-    getData: function(ctx) {
-      ctx = ctx || context;
+    getData: function(w, h) {
+      w = w || width;
+      h = h || height;
       if(video.readyState === video.HAVE_ENOUGH_DATA) {
-        ctx.drawImage(video, 0, 0, width, height);
-        return ctx.getImageData(0, 0, width, height);
+        context.drawImage(video, 0, 0, w, h, 0, 0, w, h);
+        return context.getImageData(0, 0, w, h);
       }
     }
   };
