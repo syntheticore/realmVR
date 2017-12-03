@@ -2,8 +2,6 @@ var _ = require('eakwell');
 
 var Tracker = require('./tracker.js');
 
-var qr = _.onClient() ? require('browser-qr-js') : undefined;
-
 // Used in desktop browser to broadcast
 // tracking data to connected mobile devices
 var Host = function(width, height, mobileUrl, startSelector) {
@@ -67,7 +65,7 @@ var Host = function(width, height, mobileUrl, startSelector) {
     var url = mobileUrl + self.uuid + '?realm-vr-session=' + self.uuid;
     if(startSelector) url += '&realm-vr-selector=' + startSelector;
     console.log(url);
-    qr.canvas({
+    require('browser-qr-js').canvas({
       canvas: canvas,
       value: url,
       size: 9

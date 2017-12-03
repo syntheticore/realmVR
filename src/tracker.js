@@ -267,9 +267,10 @@ var Tracker = function(cb, width, height) {
   };
 
   var calibrate = function(imageData) {
-    // return;
-    cameraPosition = new THREE.Vector3(100, 170, 600);
     worldScale = 1;
+    cameraPosition = new THREE.Vector3(0, 1700, 0);
+    return;
+    cameraOrientation = (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
     return;
     var body = getBody(imageData);
     if(!body.hmd) return; //XXX
@@ -279,7 +280,6 @@ var Tracker = function(cb, width, height) {
     worldScale = 1 / cameraPosition.length();
   };
 
-  var lastNow;
   var lastImageData;
 
   var self = {
@@ -293,6 +293,10 @@ var Tracker = function(cb, width, height) {
         if(lastImageData) {
           var body = getBody(image.data);
           if(!(body.hmd || body.leftHand || body.rightHand)) return;
+          // Return results in meters
+          body.hmd && body.hmd.position.divideScalar(1000);
+          body.leftHand && body.leftHand.position.divideScalar(1000);
+          body.rightHand && body.rightHand.position.divideScalar(1000);
           cb({
             pose: body,
             timestamp: image.timestamp

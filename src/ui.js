@@ -89,9 +89,11 @@ var UI = function(startSelector) {
           margin: auto;
           border-radius: 3px;
         }
+        .realm--vr .track--view .display canvas {
+          display: block;
+        }
         .realm--vr .track--view .gl {
           position: absolute;
-          background: rgba(255, 255, 255, 0.7);
           top: 0;
           left: 0;
         }

@@ -98,11 +98,11 @@ var VideoSource = function(width, height) {
 
   var lastBuffer;
 
-  var getFreshFrame = function() {
+  var isFrameFresh = function() {
     var buffer = self.getData(compareBufferSize, compareBufferSize);
     var different = lastBuffer && compareFrames(buffer, lastBuffer);
     lastBuffer = buffer;
-    if(different) return self.getData();
+    return different;
   };
 
   var stream;
@@ -142,7 +142,8 @@ var VideoSource = function(width, height) {
           // setTimeout(loop, grabInterval);
           window.requestAnimationFrame(loop);
           var timestamp = Date.now();
-          var data = getFreshFrame();
+          if(!isFrameFresh()) return;
+          var data = self.getData();
           data && cb({
             timestamp: timestamp,
             data: data

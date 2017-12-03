@@ -7,9 +7,9 @@ var Fusion = function(client) {
   var self = this;
   _.eventHandling(self);
 
-  var convergenceHeadPos = 0.002;
+  var convergenceHeadPos = 0.004;
   var convergenceHeadVelocity = 1.5;
-  var convergenceHeading = 0.01;
+  var convergenceHeading = 0.002;
   var convergenceHands = 0.1;
 
   var maxVelocity = 30;
@@ -163,14 +163,15 @@ var Fusion = function(client) {
   };
 
   var headingDivergence = 0;
+  var clock = new THREE.Clock(true);
 
   // Call calibrate once while oriented towards camera
   self.calibrate = function() {
     headingDivergence = getHeadingDiff();
   };
 
-  self.update = function(delta) {
-    delta = delta || 0;
+  self.update = function() {
+    var delta = clock.getDelta() * 1000;
 
     // Correct heading to match tracker space
     var orientation = getDeviceOrientation();
@@ -180,6 +181,7 @@ var Fusion = function(client) {
     self.body.head.orientation = headingDriftCorrection.multiply(orientation);
 
     // self.body.head.orientation = (new THREE.Quaternion()).setFromEuler((new THREE.Euler()).setFromVector3(absHmdOrientation)).multiply(Utils.quaternionFromHeadingRad(Math.PI));
+    // self.body.head.orientation = absHmdOrientation;
 
     // Converge towards absolute position from tracker
     var bodyAbs = getTrackedPose();
@@ -194,6 +196,7 @@ var Fusion = function(client) {
     self.body.head.position.x += velocity.x * delta / 4 + positionCorrection.x;
     self.body.head.position.y += velocity.y * delta / 4 + positionCorrection.y;
     self.body.head.position.z += velocity.z * delta / 4 + positionCorrection.z;
+    // self.body.head.position = bodyAbs.head.position;
 
     // Converge hand positions to position from tracker
     var oldLeft = self.body.left.position.clone();

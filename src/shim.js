@@ -1,19 +1,25 @@
 var _ = require('eakwell');
+var THREE = require('three');
 
 var Device = require('./device.js');
+var Overlay = require('./overlay.js');
 var TrackerUI = require('./ui.js');
 
 var RealmVRDisplay = function() {
   var self = this;
 
   var canvas;
+  var device;
+  var overlay;
+  var overlayCanvas;
   // var displayLayers = [];
   var sessionId = getSessionId();
+  var supersampling = 1.2;
 
   self.displayId = 'realmVR';
   self.displayName = 'realm VR';
 
-  self.depthNear = 0.01;
+  self.depthNear = 0.1;
   self.depthFar = 10000;
 
   self.isConnected = true;
@@ -26,57 +32,77 @@ var RealmVRDisplay = function() {
     maxLayers: 1
   };
 
-  self.stageParameters = {
-    sittingToStandingTransform: [],
-    sizeX: 2,
-    sizeY: 2
+  // self.stageParameters = {
+  //   sittingToStandingTransform: [],
+  //   sizeX: 2,
+  //   sizeY: 2
+  // };
+
+  var appendCanvas = function(c) {
+    document.body.appendChild(c);
+    c.style.position = 'fixed';
+    c.style.top = 0;
+    c.style.left = 0;
+    c.style.width = '100vw';
+    c.style.height = '100vh';
+    c.style['z-index'] = 9999;
   };
 
   var setCanvas = function(c) {
     if(canvas) document.body.removeChild(canvas);
     canvas = c;
-    if(!c) return;
-    document.body.appendChild(canvas);
-    canvas.style.position = 'fixed';
-    canvas.style.top = 0;
-    canvas.style.bottom = 0;
-    canvas.style.width = '100vw';
-    canvas.style.height = '100vh';
-    canvas.style['z-index'] = 9999;
+    if(!canvas) return;
+    appendCanvas(canvas);
   };
 
-  var getSelector = function(elem) {
-    var parent = elem.parentNode;
-    if(elem === document.body) return '';
-    var index = '' + Array.prototype.indexOf.call(parent.children, elem);
-    return getSelector(parent) + index;
+  var setOverlayCanvas = function(c) {
+    if(overlayCanvas) document.body.removeChild(overlayCanvas);
+    overlayCanvas = c;
+    if(!overlayCanvas) return;
+    appendCanvas(overlayCanvas);
   };
 
   self.getEyeParameters = function() {
+    var scale = window.devicePixelRatio * supersampling;
     return {
-      renderWidth: document.documentElement.clientWidth / 2,
-      renderHeight: document.documentElement.clientHeight
+      renderWidth: document.documentElement.clientWidth / 2 * scale,
+      renderHeight: document.documentElement.clientHeight * scale
     };
   };
 
+  var lastFrameData;
+
   self.getFrameData = function(frameData) {
-    _.each({
-      leftProjectionMatrix: Float32Array.from([0, 0, 0, 0]),
-      leftViewMatrix: Float32Array.from([0, 0, 0, 0]),
-      rightProjectionMatrix: Float32Array.from([0, 0, 0, 0]),
-      rightViewMatrix: Float32Array.from([0, 0, 0, 0]),
-      pose: {
-        position: Float32Array.from([0, 0, 0]),
-        linearVelocity: Float32Array.from([0, 0, 0]),
-        linearAcceleration: Float32Array.from([0, 0, 0]),
-        orientation: Float32Array.from([0, 0, 0, 0]),
-        angularVelocity: Float32Array.from([0, 0, 0]),
-        angularAcceleration: Float32Array.from([0, 0, 0]),
-      },
-      timestamp: Date.now()
-    }, function(value, key) {
-      frameData[key] = value;
-    });
+    if(!device) return;
+
+    frameData.timestamp = Date.now();
+    var state = device.getState();
+
+    // Left projection matrix
+    var pmL = new THREE.Matrix4();
+    pmL.makePerspective(-0.1, 0.1, 0.1, -0.1, self.depthNear, self.depthFar);
+    pmL.toArray(frameData.leftProjectionMatrix);
+
+    // Right projection matrix
+    var pmR = new THREE.Matrix4();
+    pmR.makePerspective(-0.1, 0.1, 0.1, -0.1, self.depthNear, self.depthFar);
+    pmR.toArray(frameData.rightProjectionMatrix);
+
+    // Left view matrix
+    var vmL = new THREE.Matrix4();
+    vmL.compose(state.head.position, state.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
+    vmL.toArray(frameData.leftViewMatrix);
+
+    // Right view matrix
+    var vmR = new THREE.Matrix4();
+    vmR.compose(state.head.position, state.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmR);
+    vmR.toArray(frameData.rightViewMatrix);
+
+    // Pose
+    state.head.position.toArray(frameData.pose.position);
+    state.head.orientation.toArray(frameData.pose.orientation);
+
+    lastFrameData = frameData;
   };
 
   self.getLayers = function() {
@@ -101,12 +127,18 @@ var RealmVRDisplay = function() {
       if(!self.capabilities.canPresent) return fail('Cannot present');
       if(layers.length > self.capabilities.maxLayers) return fail('Too many layers given');
         if(sessionId) {
+          // 
           // displayLayers = layers;
           setCanvas(layers[0].source);
-          var device = new Device();
-          device.setup();
+          device = new Device();
+          device.setup().then(function() {
+            overlay = new Overlay(canvas.width, canvas.height, device.bounds, self);
+            setOverlayCanvas(overlay.canvas);
+            console.log('SET OVERLAY');
+          });
           self.isPresenting = true;
           ok();
+          emitPresentChange();
         } else {
           var selector = getSelector(window.event.target);
           var ui = new TrackerUI(selector);
@@ -116,18 +148,29 @@ var RealmVRDisplay = function() {
     });
   };
 
+  var emitPresentChange = function() {
+    var event = new CustomEvent('vrdisplaypresentchange', {detail: {display: this}});
+    window.dispatchEvent(event);
+  };
+
   self.exitPresent = function() {
     return new Promise(function(ok, fail) {
       if(!self.isPresenting) return fail('Not presenting');
       // displayLayers = [];
       setCanvas(null);
+      setOverlayCanvas(null);
       self.isPresenting = false;
+      //XXX self.device.stop();
+      device = null;
+      emitPresentChange();
       ok();
     });
   };
 
   self.submitFrame = function() {
     //XXX render lens distortion correction
+    if(!overlay) return;
+    overlay.update(lastFrameData);
   };
 };
 
@@ -144,6 +187,13 @@ var getElement = function(selector) {
   return elem;
 };
 
+var getSelector = function(elem) {
+  var parent = elem.parentNode;
+  if(elem === document.body) return '';
+  var index = '' + Array.prototype.indexOf.call(parent.children, elem);
+  return getSelector(parent) + index;
+};
+
 var enterVR = function() {
   var url = new URL(window.location.href);
   var startSelector = url.searchParams.get('realm-vr-selector');
@@ -154,7 +204,8 @@ var enterVR = function() {
 
 var installDriver = function() {
   var realmDisplay = new RealmVRDisplay();
-  var getVRDisplays = navigator.getVRDisplays || function() { return Promise.resolve([]) }
+  var getVRDisplays = navigator.getVRDisplays ?
+    navigator.getVRDisplays.bind(navigator) : function() { return Promise.resolve([]) }
 
   navigator.getVRDisplays = function() {
     return getVRDisplays().then(function(displays) {
@@ -167,14 +218,25 @@ var installDriver = function() {
     });
   };
 
-  VRFrameData = Object;
+  window.VRFrameData = window.VRFrameData || function VRFrameData() {
+    this.leftProjectionMatrix = new Float32Array(16);
+    this.leftViewMatrix = new Float32Array(16);
+    this.rightProjectionMatrix = new Float32Array(16);
+    this.rightViewMatrix = new Float32Array(16);
+    this.pose = {
+      position: Float32Array.from([0, 0, 0]),
+      linearVelocity: Float32Array.from([0, 0, 0]),
+      linearAcceleration: Float32Array.from([0, 0, 0]),
+      orientation: Float32Array.from([0, 0, 0, 0]),
+      angularVelocity: Float32Array.from([0, 0, 0]),
+      angularAcceleration: Float32Array.from([0, 0, 0]),
+    };
+    this.timestamp = Date.now();
+  };
 };
 
 module.exports = {
   RealmVRDisplay: RealmVRDisplay,
-
-  shim: function() {
-    installDriver();
-  }
+  installDriver: installDriver
 };
 
