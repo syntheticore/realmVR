@@ -176,7 +176,7 @@ var GlView = function(width, height) {
   self.domElement = renderer.domElement;
 
   var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(40, width / height, 1, 10000);
+  var camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 100);
   var disposables = [];
 
   var createModel = function(width, height, depth) {
@@ -193,7 +193,7 @@ var GlView = function(width, height) {
     material.transparent = true;
     material.opacity = 0.5;
     var model = new THREE.Mesh(geometry, material);
-    var axisHelper = new THREE.AxesHelper(150);
+    var axisHelper = new THREE.AxesHelper(0.150);
     scene.add(model);
     model.add(axisHelper);
     return model;
@@ -229,24 +229,24 @@ var GlView = function(width, height) {
   };
 
   self.createPlane = function(marker) {
-    var geometry = new THREE.PlaneGeometry(10, 10);
-    var material = new THREE.MeshNormalMaterial();
-    var plane = new THREE.Mesh(geometry, material);
-    applyTransform(plane, marker);
-    var axisHelper = new THREE.AxesHelper(50);
+    // var geometry = new THREE.PlaneGeometry(10, 10);
+    // var material = new THREE.MeshNormalMaterial();
+    // var plane = new THREE.Mesh(geometry, material);
+    // applyTransform(plane, marker);
+    var axisHelper = new THREE.AxesHelper(0.050);
     applyTransform(axisHelper, marker);
     scene.add(axisHelper);
     // scene.add(plane);
-    disposables = _.union(disposables, [axisHelper, plane]);
+    disposables = _.union(disposables, [axisHelper]);
   };
 
   self.updateHMD = function(hmd) {
-    if(!self.hmd) self.hmd = createModel(145, 80, 80);
+    if(!self.hmd) self.hmd = createModel(0.145, 0.080, 0.080);
     updateTransform(self.hmd, hmd);
   };
 
   self.updateHand = function(hand) {
-    if(!self.hand) self.hand = createModel(40, 40, 40);
+    if(!self.hand) self.hand = createModel(0.040, 0.040, 0.040);
     updateTransform(self.hand, hand);
   };
 

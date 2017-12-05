@@ -124,6 +124,7 @@ var Tracker = function(cb, width, height) {
     );
   };
 
+  //XXX convert objects to world space, not markers
   var cam2world = function(vec) {
     // return vec.applyEuler(cameraOrientation).add(cameraPosition).multiplyScalar(worldScale);
     return vec.multiplyScalar(worldScale).applyQuaternion(cameraOrientation).add(cameraPosition);
@@ -146,6 +147,7 @@ var Tracker = function(cb, width, height) {
     var pose = posit.pose(corners);
     marker.position = cam2world(arucoVec2three(pose.bestTranslation));
     marker.rotation = arucoRot2three(pose.bestRotation);
+    // marker.rotation = (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(arucoRot2three(pose.bestRotation)).multiply(cameraOrientation));
     marker.error = pose.bestError || 0.1;
   };
 
@@ -174,9 +176,10 @@ var Tracker = function(cb, width, height) {
         return marker.id == def.id;
       });
       if(!marker) return;
+      var rotation = (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(marker.rotation).multiply(def.baseRotation));
       return {
         center: def.baseOffset.clone().applyEuler(marker.rotation).add(marker.position),
-        rotation: (new THREE.Euler()).setFromQuaternion((new THREE.Quaternion()).setFromEuler(marker.rotation).multiply(def.baseRotation)),
+        rotation: rotation,
         quality: 1 //1 / marker.error + 5
       };
     });
@@ -266,18 +269,20 @@ var Tracker = function(cb, width, height) {
     };
   };
 
-  var calibrate = function(imageData) {
-    worldScale = 1;
-    cameraPosition = new THREE.Vector3(0, 1700, 0);
-    return;
-    cameraOrientation = (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-    return;
-    var body = getBody(imageData);
-    if(!body.hmd) return; //XXX
-    cameraPosition = body.hmd.position.clone().negate();
-    // cameraOrientation = invertEuler(body.hmd.rotation.clone());
-    cameraOrientation = body.hmd.orientation.clone().inverse();
-    worldScale = 1 / cameraPosition.length();
+  var calibrate = function() {
+    return new Promise(function(ok, fail) {
+      var imageData = source.getData();
+      // cameraPosition = new THREE.Vector3(0, 1700, 0);
+      // return;
+      // cameraOrientation = (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+      // return;
+      var body = getBody(imageData);
+      if(!body.hmd) return _.delay(100).then(calibrate);
+      cameraPosition = body.hmd.position.clone().negate();
+      cameraOrientation = body.hmd.orientation.clone().inverse();
+      // cameraOrientation = invertEuler(body.hmd.rotation.clone());
+      // worldScale = 1000 / cameraPosition.length();
+    });
   };
 
   var lastImageData;
@@ -297,6 +302,9 @@ var Tracker = function(cb, width, height) {
           body.hmd && body.hmd.position.divideScalar(1000);
           body.leftHand && body.leftHand.position.divideScalar(1000);
           body.rightHand && body.rightHand.position.divideScalar(1000);
+          _.each(body.markers, function(marker) {
+            marker.position.divideScalar(1000);
+          });
           cb({
             pose: body,
             timestamp: image.timestamp
@@ -311,15 +319,12 @@ var Tracker = function(cb, width, height) {
       return source.stop();
     },
 
-    calibrate: function(cb) {
-      source.play().then(function() {
-        var data;
-        _.waitFor(function() {
-          data = source.getData();
-          return data;
-        }, function() {
-          calibrate(data);
-          cb();
+    calibrate: function() {
+      return source.play().then(function() {
+        return _.waitFor(function() {
+          return source.getData();
+        }).then(function() {
+          return calibrate();
         });
       });
     }

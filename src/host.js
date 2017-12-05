@@ -26,7 +26,7 @@ var Host = function(width, height, mobileUrl, startSelector) {
 
   socket.on('hmdPlaced', function(body) {
     self.emit('hmdPlaced');
-    tracker.calibrate(function() {
+    tracker.calibrate().then(function() {
       self.emit('calibrationFinished');
       self.emit('status', [{
         title: 'Space setup',
@@ -45,16 +45,16 @@ var Host = function(width, height, mobileUrl, startSelector) {
 
   // Track body through webcam
   var tracker = new Tracker(function(result) {
+    self.emit('track', [result.pose]);
+    // Broadcast coordinates to registered mobile devices
     if(result.pose.hmd) result.pose.hmd.orientation = result.pose.hmd.orientation.toArray();
     if(result.pose.leftHand) result.pose.leftHand.orientation = result.pose.leftHand.orientation.toArray();
     if(result.pose.rightHand) result.pose.rightHand.orientation = result.pose.rightHand.orientation.toArray();
-    // Broadcast coordinates to registered mobile devices
     socket.emit('track', {
       uuid: self.uuid,
       pose: result.pose,
       delay: Date.now() - result.timestamp
     });
-    self.emit('track', [result.pose]);
   }, width, height);
 
   // Canvas with tracking markers on video stream
