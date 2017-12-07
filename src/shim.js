@@ -12,7 +12,6 @@ var RealmVRDisplay = function() {
   var device;
   var overlay;
   var overlayCanvas;
-  // var displayLayers = [];
   var sessionId = getSessionId();
   var supersampling = 2;
 
@@ -111,7 +110,6 @@ var RealmVRDisplay = function() {
       rightBounds: [0.5, 0.0, 0.5, 1.0],
       source: canvas
     }];
-    // return displayLayers;
   };
 
   self.resetPose = function() {
@@ -126,25 +124,23 @@ var RealmVRDisplay = function() {
     return new Promise(function(ok, fail) {
       if(!self.capabilities.canPresent) return fail('Cannot present');
       if(layers.length > self.capabilities.maxLayers) return fail('Too many layers given');
-        if(sessionId) {
-          // 
-          // displayLayers = layers;
-          setCanvas(layers[0].source);
-          device = new Device();
-          device.setup().then(function() {
-            overlay = new Overlay(canvas.width, canvas.height, device.bounds, self);
-            setOverlayCanvas(overlay.canvas);
-            console.log('SET OVERLAY');
-          });
-          self.isPresenting = true;
-          ok();
-          emitPresentChange();
-        } else {
-          var selector = getSelector(window.event.target);
-          var ui = new TrackerUI(selector);
-          ui.startTracker();
-          fail('Presentation happens on the mobile device');
-        }
+      if(sessionId) {
+        setCanvas(layers[0].source);
+        device = new Device();
+        device.setup().then(function() {
+          overlay = new Overlay(canvas.width, canvas.height, device.bounds, self);
+          setOverlayCanvas(overlay.canvas);
+          console.log('SET OVERLAY');
+        });
+        self.isPresenting = true;
+        emitPresentChange();
+      } else {
+        var selector = window.event && getSelector(window.event.target);
+        var ui = new TrackerUI(selector);
+        ui.startTracker();
+        return fail('Presentation happens on the mobile device');
+      }
+      ok();
     });
   };
 
@@ -156,7 +152,6 @@ var RealmVRDisplay = function() {
   self.exitPresent = function() {
     return new Promise(function(ok, fail) {
       if(!self.isPresenting) return fail('Not presenting');
-      // displayLayers = [];
       setCanvas(null);
       setOverlayCanvas(null);
       self.isPresenting = false;
@@ -218,7 +213,7 @@ var installDriver = function() {
     });
   };
 
-  window.VRFrameData = window.VRFrameData || function VRFrameData() {
+  window.VRFrameData = function VRFrameData() {
     this.leftProjectionMatrix = new Float32Array(16);
     this.leftViewMatrix = new Float32Array(16);
     this.rightProjectionMatrix = new Float32Array(16);
@@ -232,6 +227,16 @@ var installDriver = function() {
       angularAcceleration: Float32Array.from([0, 0, 0]),
     };
     this.timestamp = Date.now();
+  };
+
+  var addEventListener = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, cb, capture) {
+    var obj = this;
+    addEventListener.bind(obj)(type, function() {
+      window.event = arguments[0];
+      cb.apply(obj, arguments);
+      delete window.event;
+    }, capture);
   };
 };
 
