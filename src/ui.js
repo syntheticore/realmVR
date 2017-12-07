@@ -171,7 +171,7 @@ var UI = function(startSelector) {
 var GlView = function(width, height) {
   var self = this;
 
-  var renderer = new THREE.WebGLRenderer({alpha: true, antialiasing: true});
+  var renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
   // renderer.setClearColor(0xffff00, 1);
   renderer.setSize(width, height);
   renderer.setPixelRatio(2);

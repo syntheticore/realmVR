@@ -8,24 +8,24 @@ var Renderer = function(scene, camera, device, renderPasses) {
 
   self.renderer = new THREE.WebGLRenderer({
     alpha: false,
-    antialiasing: false,
+    antialias: false,
     preserveDrawingBuffer: true
   });
 
   var composer = new THREE.EffectComposer(self.renderer);
-  
+
   // Mono pass
   var monoPass = new THREE.RenderPass(scene, camera);
   monoPass.enabled = false;
-  
+
   // Stereo pass
   var stereoEffect = new THREE.StereoEffect(self.renderer, scene, camera);
-  
+
   // Barrel Distortion
   var barrelDistortion = new THREE.ShaderPass(THREE.CardboardBarrelDistortion);
   barrelDistortion.uniforms.backgroundColor.value = new THREE.Vector4(0, 0, 0, 1);
   barrelDistortion.uniforms.dividerColor.value = new THREE.Vector4(0.2, 0.2, 0.2, 1.0);
-  
+
   // Show result
   var blit = new THREE.ShaderPass(THREE.CopyShader);
   blit.renderToScreen = true;

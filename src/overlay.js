@@ -10,7 +10,7 @@ var Overlay = function(width, height, bounds, display) {
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(80, width / height, 0.1, 10000);
 
-  var renderer = new THREE.WebGLRenderer({alpha: true, antialiasing: true});
+  var renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
   renderer.setSize(width, height);
   // renderer.setPixelRatio(window.devicePixelRatio);
   renderer.vr.enabled = true;

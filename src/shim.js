@@ -13,7 +13,7 @@ var RealmVRDisplay = function() {
   var overlay;
   var overlayCanvas;
   var sessionId = getSessionId();
-  var supersampling = 2;
+  var supersampling = 1;
 
   self.displayId = 'realmVR';
   self.displayName = 'realm VR';
