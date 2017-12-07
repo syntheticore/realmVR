@@ -34,7 +34,7 @@ var Host = function(width, height, mobileUrl, startSelector) {
       }]);
     });
   });
-  
+
   socket.on('playspaceFinished', function(body) {
     self.emit('playspaceFinished');
     self.emit('status', [{
@@ -77,12 +77,13 @@ var Host = function(width, height, mobileUrl, startSelector) {
   self.start = function() {
     // Broadcast empty packet to start session
     socket.emit('track', {uuid: self.uuid});
-    self.emit('status', [{
-      title: 'Connect Headset',
-      description: 'Hold your headset up to the QR code below to pair it with this computer',
-      display: makeQRCode()
-    }]);
-    return tracker.start();
+    return tracker.start().then(function() {
+      self.emit('status', [{
+        title: 'Connect Headset',
+        description: 'Hold your headset up to the QR code below to pair it with this computer',
+        display: makeQRCode()
+      }]);
+    });
   };
 
   // Stop broadcasting tracking data

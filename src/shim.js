@@ -209,6 +209,7 @@ var installDriver = function() {
         setTimeout(enterVR, 0);
       }
       displays.push(realmDisplay);
+      displays.unshift(realmDisplay);
       return displays;
     });
   };

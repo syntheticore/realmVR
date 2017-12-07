@@ -91,6 +91,7 @@ var VideoSource = function(width, height) {
         };
       }).catch(function(err) {
         console.error(err);
+        if(err.name == 'NotFoundError') return fail('Could not find a webcam on this computer');
         fail(err);
       });
     });

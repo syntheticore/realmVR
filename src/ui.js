@@ -9,7 +9,7 @@ var UI = function(startSelector) {
   var width = 640;
   var height = 480;
 
-  var host = new Host(width, height, null, startSelector); 
+  var host = new Host(width, height, null, startSelector);
   var glView = new GlView(width, height);
 
   var mainTemplate = `
@@ -127,22 +127,19 @@ var UI = function(startSelector) {
       display.innerHTML = '';
       display.appendChild(data.display);
     }
-    if(data.closeCb) {
-      _.once(view.querySelector('.close'), 'click', data.closeCb);
-    }
   };
 
   self.startTracker = function() {
     var mainView = evalTemplate(mainTemplate);
     updateView(mainView, {
       title: 'Welcome to realmVR',
-      description: 'Please wait while the driver is loading...',
-      closeCb: function() {
-        host.stop();
-        document.body.removeChild(mainView);
-      }
+      description: 'Please wait while the driver is loading...'
     });
     document.body.appendChild(mainView);
+    _.once(mainView.querySelector('.close'), 'click', function() {
+      host.stop();
+      document.body.removeChild(mainView);
+    });
 
     host.on('status', function(status) {
       updateView(mainView, status);
@@ -162,7 +159,12 @@ var UI = function(startSelector) {
       glView.render();
     });
 
-    host.start();
+    host.start().catch(function(error) {
+      updateView(mainView, {
+        title: 'We have a problem',
+        description: error
+      });
+    });
   };
 };
 
@@ -252,11 +254,11 @@ var GlView = function(width, height) {
 
   self.clear = function() {
     _.each(disposables, function(disposable) {
-      scene.remove(disposable); 
+      scene.remove(disposable);
     });
     disposables = [];
   };
-    
+
   self.render = function() {
     renderer.clear();
     renderer.render(scene, camera);
