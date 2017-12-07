@@ -4,9 +4,8 @@ var THREE = require('three');
 var Overlay = function(width, height, bounds, display) {
   var self = this;
 
-  // Prevent infinite recursion when rendering
-  display = _.clone(display);
-  display.submitFrame = _.noop;
+  var fenceHeight = 2.2;
+  var minFenceDistance = 0.2;
 
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(80, width / height, 0.1, 10000);
@@ -20,6 +19,10 @@ var Overlay = function(width, height, bounds, display) {
 
   self.canvas = renderer.domElement;
 
+  // Prevent infinite recursion when rendering
+  display = _.clone(display);
+  display.submitFrame = _.noop;
+
   var getBounds = function() {
     var bounds = {
       front: 0, //XXX Calculate front
@@ -29,13 +32,12 @@ var Overlay = function(width, height, bounds, display) {
     };
     bounds.width = Math.abs(bounds.right - bounds.left);
     bounds.length = Math.abs(bounds.back - bounds.front);
-    bounds.height = (bounds.width + bounds.length) / 2;
-    bounds.center = new THREE.Vector3((bounds.right + bounds.left) / 2, bounds.height / 2, (bounds.back + bounds.front) / 2);
+    bounds.center = new THREE.Vector3((bounds.right + bounds.left) / 2, 0, (bounds.back + bounds.front) / 2);
     return bounds;
   };
 
   var makeBoundingBox = function(bounds) {
-    var cubeGeometry = new THREE.BoxGeometry(bounds.width, bounds.height, bounds.length, 4, 4, 4);
+    var cubeGeometry = new THREE.BoxGeometry(bounds.width, fenceHeight, bounds.length, 4, 4, 4);
     cubeGeometry.translate(0, bounds.height / 2, 0);
     var cube = new THREE.Mesh(cubeGeometry, new THREE.MeshBasicMaterial({
       flatShading: true,
@@ -54,17 +56,23 @@ var Overlay = function(width, height, bounds, display) {
     return cube;
   };
 
+  var render = function() {
+    renderer.render(scene, camera);
+  };
+
   var boundingBox = makeBoundingBox(getBounds());
   var home = new THREE.AxesHelper(150);
   scene.add(home);
   scene.add(boundingBox);
 
-  self.update = function(pose) {
-    self.render();
-  };
-
-  self.render = function() {
-    renderer.render(scene, camera);
+  self.update = function(frameData) {
+    var pos = (new THREE.Vector3()).fromArray(frameData.pose.position);
+    var bounds = getBounds();
+    var boundsRadius = bounds.width / 2;
+    var centerDist = bounds.center.distanceTo(pos.clone().setY(0));
+    var wallDist = boundsRadius - centerDist;
+    boundingBox.material.opacity = Math.max(0, 1 - (wallDist / minFenceDistance));
+    render();
   };
 };
 
