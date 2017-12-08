@@ -44,7 +44,6 @@ var RealmVRDisplay = function() {
     c.style.left = 0;
     c.style.width = '100vw';
     c.style.height = '100vh';
-    c.style.background = 'black';
     c.style['z-index'] = 9999;
   };
 
@@ -53,6 +52,7 @@ var RealmVRDisplay = function() {
     canvas = c;
     if(!canvas) return;
     appendCanvas(canvas);
+    canvas.style.background = 'black';
   };
 
   var setOverlayCanvas = function(c) {
@@ -120,12 +120,11 @@ var RealmVRDisplay = function() {
         device.setup().then(function() {
           overlay = new Overlay(canvas.width, canvas.height, device.bounds, self);
           setOverlayCanvas(overlay.canvas);
-          console.log('SET OVERLAY');
         });
         self.isPresenting = true;
-        emitPresentChange();
+        emitEvent('vrdisplaypresentchange');
       } else {
-        var selector = window.event && getSelector(window.event.target);
+        var selector = window.event && window.event.type + '-' + getSelector(window.event.target);
         var ui = new TrackerUI(selector);
         ui.startTracker();
         return fail('Presentation happens on the mobile device');
@@ -134,10 +133,13 @@ var RealmVRDisplay = function() {
     });
   };
 
-  var emitPresentChange = function() {
-    var event = new CustomEvent('vrdisplaypresentchange', {detail: {display: self}});
+  var emitEvent = function(eName) {
+    var event = new CustomEvent(eName, {detail: {display: self}});
     window.dispatchEvent(event);
   };
+
+  // emitEvent('vrdisplayblur');
+  // emitEvent('vrdisplayfocus');
 
   self.exitPresent = function() {
     return new Promise(function(ok, fail) {
@@ -147,7 +149,7 @@ var RealmVRDisplay = function() {
       self.isPresenting = false;
       //XXX self.device.stop();
       device = null;
-      emitPresentChange();
+      emitEvent('vrdisplaypresentchange');
       ok();
     });
   };
@@ -186,19 +188,57 @@ var enterVR = function() {
   var url = new URL(window.location.href);
   var startSelector = url.searchParams.get('realm-vr-selector');
   if(!startSelector) return;
-  var button = getElement(startSelector);
-  button && button.click();
+  var parts = startSelector.split('-');
+  var button = getElement(parts[1]);
+  if(button) {
+    var e = document.createEvent('HTMLEvents');
+    e.initEvent(parts[0], true, true);
+    button.dispatchEvent(e);
+  }
   didEnter = true;
+};
+
+var makeGamepad = function(hand) {
+  return {
+    id: 'realmVR Motion Controller (' + hand + ')',
+    displayId: 'realmVR',
+    hand: hand,
+    pose: {
+      angularAcceleration: null,
+      angularVelocity: null,
+      hasOrientation: false,
+      hasPosition: false,
+      linearAcceleration: null,
+      linearVelocity: null,
+      orientation: null,
+      position: null
+    },
+    axes: [0, 0],
+    buttons: [{
+      pressed: false,
+      touched: true,
+      value: 0
+    }, {
+      pressed: false,
+      touched: true,
+      value: 0
+    }],
+    timestamp: Date.now()
+  };
 };
 
 var installDriver = function() {
   var realmDisplay = new RealmVRDisplay();
+  var gamePads = {
+    left: makeGamepad('left'),
+    right: makeGamepad('right')
+  };
+
   var getVRDisplays = navigator.getVRDisplays ?
     navigator.getVRDisplays.bind(navigator) : function() { return Promise.resolve([]) }
 
   navigator.getVRDisplays = function() {
     return getVRDisplays().then(function(displays) {
-      displays.unshift(realmDisplay);
       if(getSessionId()) {
         displays = [];
         setTimeout(enterVR, 0);
@@ -208,6 +248,15 @@ var installDriver = function() {
     });
   };
 
+  var getGamepads = navigator.getGamepads.bind(navigator);
+  navigator.getGamepads = function() {
+    var gamepads = getGamepads();
+    gamepads.push(gamePads.left);
+    gamepads.push(gamePads.right);
+    return gamepads;
+  };
+
+  // window.VRFrameData = window.VRFrameData || function VRFrameData() {
   window.VRFrameData = function VRFrameData() {
     this.leftProjectionMatrix = new Float32Array(16);
     this.leftViewMatrix = new Float32Array(16);
@@ -230,7 +279,6 @@ var installDriver = function() {
     addEventListener.bind(obj)(type, function() {
       window.event = arguments[0];
       cb.apply(obj, arguments);
-      // delete window.event;
     }, capture);
   };
 };
@@ -239,4 +287,3 @@ module.exports = {
   RealmVRDisplay: RealmVRDisplay,
   installDriver: installDriver
 };
-
