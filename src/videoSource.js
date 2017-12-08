@@ -89,10 +89,10 @@ var VideoSource = function(width, height) {
             ok(stream);
           // });
         };
-      }).catch(function(err) {
-        console.error(err);
-        if(err.name == 'NotFoundError') return fail('Could not find a webcam on this computer');
-        fail(err);
+      }).catch(function(error) {
+        console.error(error);
+        if(error.name == 'NotFoundError' || error.name == 'DevicesNotFoundError') return fail('Could not find a webcam on this computer');
+        fail(error);
       });
     });
   };

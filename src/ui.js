@@ -13,9 +13,9 @@ var UI = function(startSelector) {
   var glView = new GlView(width, height);
 
   var mainTemplate = `
-    <div class="realm--vr">
+    <div class="rvr-backdrop">
       <style type="text/css">
-        .realm--vr {
+        .rvr-backdrop {
           position: fixed;
           z-index: 101;
           top: 0;
@@ -27,19 +27,19 @@ var UI = function(startSelector) {
           justify-items: center;
           align-items: center;
         }
-        .realm--vr * {
+        .rvr-backdrop * {
           font-family: 'Neue Helvetica', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif !important;
         }
-        .realm--vr .track--view {
+        .rvr-dialog {
           overflow: hidden;
           margin: auto;
           background: #fff;
           padding: 2rem;
           border-radius: 3px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
           border: 1px solid #cacaca;
         }
-        .realm--vr .track--view button {
+        .rvr-dialog button {
           border: 1px solid #cacaca;
           background: white;
           font-size: 1rem;
@@ -52,64 +52,64 @@ var UI = function(startSelector) {
           border-radius: 2px;
           margin: 0;
         }
-        .realm--vr .track--view button:hover {
+        .rvr-dialog button:hover {
           color: #383838;
           box-shadow: 0 1px 2px rgba(0,0,0, 0.15);
           text-decoration: none;
         }
-        .realm--vr .track--view button:active {
+        .rvr-dialog button:active {
           box-shadow: inset 0 1px 2px rgba(0,0,0, 0.15);
         }
-        .realm--vr .track--view header {
+        .rvr-dialog header {
           width: 640px;
           margin-bottom: 2rem;
         }
-        .realm--vr .track--view .close {
+        .rvr-dialog .rvr-close {
           float: right;
         }
-        .realm--vr .track--view header h1 {
-          font-size: 1.5rem;
+        .rvr-dialog header h1 {
+          font-size: 1.6rem;
           display: inline-block;
           color: #383838;
-          border-bottom: 2px solid #37a5b7;
+          border-bottom: 2px solid #e42b6c;
         }
-        .realm--vr .track--view header p {
-          margin: .5rem 0;
+        .rvr-dialog header p {
+          margin: 1rem 0;
           line-height: 1.4;
           width: 370px;
           font-size: 1.11rem;
           font-weight: 500;
           color: #5d5d5d;
         }
-        .realm--vr .track--view .display-area {
+        .rvr-dialog .rvr-display-area {
           position: relative;
           display: flex;
           justify-items: center;
         }
-        .realm--vr .track--view .display {
+        .rvr-dialog .rvr-display {
           overflow: hidden;
           margin: auto;
           border-radius: 3px;
         }
-        .realm--vr .track--view .display canvas {
+        .rvr-dialog .rvr-display canvas {
           display: block;
         }
-        .realm--vr .track--view .gl {
+        .rvr-dialog .rvr-gl {
           position: absolute;
           top: 0;
           left: 0;
         }
       </style>
 
-      <div class="track--view">
+      <div class="rvr-dialog">
         <header>
-          <button class="close">X Cancel</button>
+          <button class="rvr-close">X Cancel</button>
           <h1></h1>
           <p></p>
         </header>
-        <div class="display-area">
-          <div class="display"></div>
-          <div class="gl"></div>
+        <div class="rvr-display-area">
+          <div class="rvr-display"></div>
+          <div class="rvr-gl"></div>
         </div>
       </div>
     </div>
@@ -125,7 +125,7 @@ var UI = function(startSelector) {
     view.querySelector('h1').textContent = data.title;
     view.querySelector('p').textContent = data.description;
     if(data.display) {
-      var display = view.querySelector('.display');
+      var display = view.querySelector('.rvr-display');
       display.innerHTML = '';
       display.appendChild(data.display);
     }
@@ -138,7 +138,7 @@ var UI = function(startSelector) {
       description: 'Please wait while the driver is loading...'
     });
     document.body.appendChild(mainView);
-    _.once(mainView.querySelector('.close'), 'click', function() {
+    _.once(mainView.querySelector('.rvr-close'), 'click', function() {
       host.stop();
       document.body.removeChild(mainView);
     });
@@ -148,7 +148,7 @@ var UI = function(startSelector) {
     });
 
     host.on('clientConnected', function() {
-      mainView.querySelector('.gl').appendChild(glView.domElement);
+      mainView.querySelector('.rvr-gl').appendChild(glView.domElement);
     });
 
     host.on('track', function(pose) {

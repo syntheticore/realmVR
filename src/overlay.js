@@ -4,6 +4,10 @@ var THREE = require('three');
 var Overlay = function(width, height, bounds, display) {
   var self = this;
 
+  // Prevent infinite recursion when rendering
+  display = _.clone(display);
+  display.submitFrame = _.noop;
+
   var fenceHeight = 2.2;
   var minFenceDistance = 0.2;
 
@@ -18,10 +22,6 @@ var Overlay = function(width, height, bounds, display) {
   renderer.vr.setDevice(display);
 
   self.canvas = renderer.domElement;
-
-  // Prevent infinite recursion when rendering
-  display = _.clone(display);
-  display.submitFrame = _.noop;
 
   var getBounds = function() {
     var bounds = {

@@ -167,7 +167,7 @@ var getElement = function(selector) {
   var elem = document.body;
   _.each(selector, function(char) {
     var index = parseInt(char);
-    elem = elem.childNodes[index];
+    elem = elem && elem.childNodes[index];
   });
   return elem;
 };
@@ -179,12 +179,16 @@ var getSelector = function(elem) {
   return getSelector(parent) + index;
 };
 
+var didEnter;
+
 var enterVR = function() {
+  if(didEnter) return;
   var url = new URL(window.location.href);
   var startSelector = url.searchParams.get('realm-vr-selector');
   if(!startSelector) return;
   var button = getElement(startSelector);
-  if(button.tagName == 'BUTTON') button.click();
+  button && button.click();
+  didEnter = true;
 };
 
 var installDriver = function() {
@@ -194,12 +198,12 @@ var installDriver = function() {
 
   navigator.getVRDisplays = function() {
     return getVRDisplays().then(function(displays) {
+      displays.unshift(realmDisplay);
       if(getSessionId()) {
         displays = [];
         setTimeout(enterVR, 0);
       }
       displays.push(realmDisplay);
-      displays.unshift(realmDisplay);
       return displays;
     });
   };
@@ -226,7 +230,7 @@ var installDriver = function() {
     addEventListener.bind(obj)(type, function() {
       window.event = arguments[0];
       cb.apply(obj, arguments);
-      delete window.event;
+      // delete window.event;
     }, capture);
   };
 };

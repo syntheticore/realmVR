@@ -71,7 +71,7 @@ var Device = function() {
         // Let the player define the bounds of the play space
         // by pressing the headset button in three different locations
         var handler = self.on('headsetButtonPressed', function() {
-          self.bounds.push(self.getState().head.position.clone().setY(0))
+          self.bounds.push(self.getPose().head.position.clone().setY(0))
           if(self.bounds.length == 3) {
             self.off(handler);
             client.playspaceFinished();
