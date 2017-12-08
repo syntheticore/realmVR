@@ -22,11 +22,13 @@ var UI = function(startSelector) {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(255,255,255, 0.7);
+          background: rgba(255,255,255, 0.8);
           display: flex;
           justify-items: center;
           align-items: center;
-          font-family: 'Neue Helvetica', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+        }
+        .realm--vr * {
+          font-family: 'Neue Helvetica', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif !important;
         }
         .realm--vr .track--view {
           overflow: hidden;
@@ -66,7 +68,7 @@ var UI = function(startSelector) {
           float: right;
         }
         .realm--vr .track--view header h1 {
-          font-size: 1.6rem;
+          font-size: 1.5rem;
           display: inline-block;
           color: #383838;
           border-bottom: 2px solid #37a5b7;
@@ -75,7 +77,7 @@ var UI = function(startSelector) {
           margin: .5rem 0;
           line-height: 1.4;
           width: 370px;
-          font-size: 1.1rem;
+          font-size: 1.11rem;
           font-weight: 500;
           color: #5d5d5d;
         }

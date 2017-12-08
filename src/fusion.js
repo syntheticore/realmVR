@@ -33,15 +33,15 @@ var Fusion = function(client) {
       orientation: new THREE.Quaternion()
     }
   };
-  
+
   // Receive and predict absolute positions from tracker
   var leftPredictor = new VectorPredictor();
   var rightPredictor = new VectorPredictor();
   var headPredictor = new VectorPredictor();
 
-  leftPredictor.feed(new THREE.Vector3(-80, 120, 130));
-  rightPredictor.feed(new THREE.Vector3(-80, 120, 70));
-  headPredictor.feed(new THREE.Vector3(250, 170, 100));
+  leftPredictor.feed(new THREE.Vector3(0, 0, 0));
+  rightPredictor.feed(new THREE.Vector3(0, 0, 0));
+  headPredictor.feed(new THREE.Vector3(0, 1, 0));
 
   var absHmdOrientation = new THREE.Quaternion();
   var absLeftOrientation = new THREE.Quaternion();

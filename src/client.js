@@ -14,7 +14,7 @@ var Receiver = function(sessionId) {
   // Register for updates from desktop
   var socket = io();
   socket.emit('register', sessionId);
-  
+
   // Emit track event when desktop sends data
   socket.on('track', function(result) {
     result.delay += networkDelay;

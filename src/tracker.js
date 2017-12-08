@@ -137,7 +137,7 @@ var Tracker = function(cb, width, height) {
   // Return the real world position and
   // orientation of the given marker
   var orientMarker = function(marker) {
-    // Corners must be centered on canvas 
+    // Corners must be centered on canvas
     var corners = _.map(marker.corners, function(corner) {
       return {
         x: corner.x - (width / 2),
@@ -265,6 +265,10 @@ var Tracker = function(cb, width, height) {
       hmd: hmd,
       leftHand: left,
       rightHand: right,
+      lenseOffsets: {
+        left: null,
+        right: null
+      },
       markers: markers
     };
   };

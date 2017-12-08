@@ -44,6 +44,7 @@ var RealmVRDisplay = function() {
     c.style.left = 0;
     c.style.width = '100vw';
     c.style.height = '100vh';
+    c.style.background = 'black';
     c.style['z-index'] = 9999;
   };
 
@@ -75,31 +76,20 @@ var RealmVRDisplay = function() {
     if(!device) return;
 
     frameData.timestamp = Date.now();
-    var state = device.getState();
-
-    // Left projection matrix
-    var pmL = new THREE.Matrix4();
-    pmL.makePerspective(-0.1, 0.1, 0.1, -0.1, self.depthNear, self.depthFar);
-    pmL.toArray(frameData.leftProjectionMatrix);
-
-    // Right projection matrix
-    var pmR = new THREE.Matrix4();
-    pmR.makePerspective(-0.1, 0.1, 0.1, -0.1, self.depthNear, self.depthFar);
-    pmR.toArray(frameData.rightProjectionMatrix);
-
-    // Left view matrix
-    var vmL = new THREE.Matrix4();
-    vmL.compose(state.head.position, state.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
-    vmL.toArray(frameData.leftViewMatrix);
-
-    // Right view matrix
-    var vmR = new THREE.Matrix4();
-    vmR.compose(state.head.position, state.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmR);
-    vmR.toArray(frameData.rightViewMatrix);
 
     // Pose
-    state.head.position.toArray(frameData.pose.position);
-    state.head.orientation.toArray(frameData.pose.orientation);
+    var pose = device.getPose();
+    pose.head.position.toArray(frameData.pose.position);
+    pose.head.orientation.toArray(frameData.pose.orientation);
+
+    // View matrices
+    pose.views.left.toArray(frameData.leftViewMatrix);
+    pose.views.right.toArray(frameData.rightViewMatrix);
+
+    // Projection matrices
+    var projections = device.getProjections(self.depthNear, self.depthFar);
+    projections.left.toArray(frameData.leftProjectionMatrix);
+    projections.right.toArray(frameData.rightProjectionMatrix);
 
     lastFrameData = frameData;
   };
@@ -145,7 +135,7 @@ var RealmVRDisplay = function() {
   };
 
   var emitPresentChange = function() {
-    var event = new CustomEvent('vrdisplaypresentchange', {detail: {display: this}});
+    var event = new CustomEvent('vrdisplaypresentchange', {detail: {display: self}});
     window.dispatchEvent(event);
   };
 
