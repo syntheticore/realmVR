@@ -161,7 +161,7 @@ var UI = function(startSelector) {
       glView.render();
     });
 
-    host.start().catch(function(error) {
+    return host.start().catch(function(error) {
       updateView(mainView, {
         title: 'We have a problem',
         description: error

@@ -122,14 +122,15 @@ var RealmVRDisplay = function() {
           setOverlayCanvas(overlay.canvas);
         });
         self.isPresenting = true;
+        ok();
         emitEvent('vrdisplaypresentchange');
       } else {
         var selector = window.event && window.event.type + '-' + getSelector(window.event.target);
         var ui = new TrackerUI(selector);
+        // ui.startTracker().then(ok).catch(fail);
         ui.startTracker();
         return fail('Presentation happens on the mobile device');
       }
-      ok();
     });
   };
 
@@ -176,7 +177,7 @@ var getElement = function(selector) {
 
 var getSelector = function(elem) {
   var parent = elem.parentNode;
-  if(elem === document.body) return '';
+  if(elem === document.body || !parent) return '';
   var index = '' + Array.prototype.indexOf.call(parent.children, elem);
   return getSelector(parent) + index;
 };
