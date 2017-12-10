@@ -77,7 +77,7 @@ var UI = function(startSelector) {
           margin: 1rem 0;
           line-height: 1.4;
           width: 370px;
-          font-size: 1.11rem;
+          font-size: 1.1rem;
           font-weight: 500;
           color: #5d5d5d;
         }
@@ -134,8 +134,8 @@ var UI = function(startSelector) {
   self.startTracker = function() {
     var mainView = evalTemplate(mainTemplate);
     updateView(mainView, {
-      title: 'Welcome to realmVR',
-      description: 'Please wait while the driver is loading...'
+      title: 'realmVR',
+      description: 'Please allow access to your computer\'s camera for tracking to begin'
     });
     document.body.appendChild(mainView);
     _.once(mainView.querySelector('.rvr-close'), 'click', function() {

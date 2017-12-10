@@ -252,6 +252,7 @@ var installDriver = function() {
   var getGamepads = navigator.getGamepads.bind(navigator);
   navigator.getGamepads = function() {
     var gamepads = getGamepads();
+    gamepads = _.compact(_.values(gamepads));
     gamepads.push(gamePads.left);
     gamepads.push(gamePads.right);
     return gamepads;

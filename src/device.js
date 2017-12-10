@@ -23,10 +23,10 @@ var Device = function() {
     right: 0.032
   };
 
-  client.on('track', function(result) {
-    if(!result.pose.lenseOffsets) return;
-    if(result.pose.lenseOffsets.left) lenseOffsets.left = result.pose.lenseOffsets.left;
-    if(result.pose.lenseOffsets.right) lenseOffsets.right = result.pose.lenseOffsets.right;
+  client.on('track', function(data) {
+    if(!data.pose.lenseOffsets) return;
+    if(data.pose.lenseOffsets.left) lenseOffsets.left = data.pose.lenseOffsets.left;
+    if(data.pose.lenseOffsets.right) lenseOffsets.right = data.pose.lenseOffsets.right;
   });
 
   // Cardboard 2.0 switch activation
@@ -62,23 +62,37 @@ var Device = function() {
     };
   };
 
-  self.setup = function() {
-    return _.promise(function(ok) {
-      // Calibrate device rotation in relation to tracked orientation
-      self.once('headsetButtonPressed', function() {
-        fusion.calibrate();
-        client.hmdPlaced();
-        // Let the player define the bounds of the play space
-        // by pressing the headset button in three different locations
-        var handler = self.on('headsetButtonPressed', function() {
-          self.bounds.push(self.getPose().head.position.clone().setY(0))
-          if(self.bounds.length == 3) {
-            self.off(handler);
-            client.playspaceFinished();
-            ok();
-          }
-        });
+  // Let the player define the bounds of the play space
+  // by pressing the headset button in three different locations
+  var collectBounds = function() {
+    return new Promise(function(ok, fail) {
+      var handler = self.on('headsetButtonPressed', function() {
+        self.bounds.push(self.getPose().head.position.clone().setY(0))
+        if(self.bounds.length == 3) {
+          self.off(handler);
+          ok();
+        }
       });
+    });
+  };
+
+  // Calibrate device rotation in relation to tracked orientation
+  var calibrate = function() {
+    return new Promise(function(ok) {
+      var handler = self.on('headsetButtonPressed', function() {
+        fusion.calibrate();
+        client.sendStatus('hmdPlaced');
+      });
+      client.once('calibrationFinished', function() {
+        self.off(handler);
+        ok();
+      });
+    });
+  };
+
+  self.setup = function() {
+    return calibrate().then(collectBounds).then(function() {
+      client.sendStatus('playspaceFinished');
     });
   };
 };

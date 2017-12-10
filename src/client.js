@@ -16,27 +16,20 @@ var Receiver = function(sessionId) {
   socket.emit('register', sessionId);
 
   // Emit track event when desktop sends data
-  socket.on('track', function(result) {
-    result.delay += networkDelay;
-    if(result.pose.hmd) result.pose.hmd.orientation = (new THREE.Quaternion()).fromArray(result.pose.hmd.orientation);
-    if(result.pose.leftHand) result.pose.leftHand.orientation = (new THREE.Quaternion()).fromArray(result.pose.leftHand.orientation);
-    if(result.pose.rightHand) result.pose.rightHand.orientation = (new THREE.Quaternion()).fromArray(result.pose.rightHand.orientation);
-    self.emit('track', [result]);
+  socket.on('track', function(data) {
+    data.delay += networkDelay;
+    if(data.pose.hmd) data.pose.hmd.orientation = (new THREE.Quaternion()).fromArray(data.pose.hmd.orientation);
+    if(data.pose.leftHand) data.pose.leftHand.orientation = (new THREE.Quaternion()).fromArray(data.pose.leftHand.orientation);
+    if(data.pose.rightHand) data.pose.rightHand.orientation = (new THREE.Quaternion()).fromArray(data.pose.rightHand.orientation);
+    self.emit('track', [data]);
   });
 
-  // Emit configuration event when desktop sends data
-  socket.on('configuration', function(config) {
-    self.emit('configuration', [config]);
+  socket.on('calibrationFinished', function() {
+    self.emit('calibrationFinished');
   });
 
-  // Tell server that the player has placed the headset into its tray
-  this.hmdPlaced = function() {
-    socket.emit('hmdPlaced', sessionId);
-  };
-
-  // Tell server that the player has finished defining the bounds of the workspace
-  this.playspaceFinished = function() {
-    socket.emit('playspaceFinished', sessionId);
+  self.sendStatus = function(type, data) {
+    socket.emit('status', sessionId, type, data);
   };
 
   LOG = function(txt) {

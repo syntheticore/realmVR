@@ -274,19 +274,18 @@ var Tracker = function(cb, width, height) {
   };
 
   var calibrate = function() {
-    return new Promise(function(ok, fail) {
-      var imageData = source.getData();
-      // cameraPosition = new THREE.Vector3(0, 1700, 0);
-      // return;
-      // cameraOrientation = (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-      // return;
-      var body = getBody(imageData);
-      if(!body.hmd) return _.delay(100).then(calibrate);
-      cameraPosition = body.hmd.position.clone().negate();
-      cameraOrientation = body.hmd.orientation.clone().inverse();
-      // cameraOrientation = invertEuler(body.hmd.rotation.clone());
-      // worldScale = 1000 / cameraPosition.length();
-    });
+    var imageData = source.getData();
+    // cameraPosition = new THREE.Vector3(0, 1700, 0);
+    // return;
+    // cameraOrientation = (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    // return;
+    var body = getBody(imageData);
+    if(!body.hmd) return false;
+    cameraPosition = body.hmd.position.clone().negate();
+    cameraOrientation = body.hmd.orientation.clone().inverse();
+    // cameraOrientation = invertEuler(body.hmd.rotation.clone());
+    // worldScale = 1000 / cameraPosition.length();
+    return true;
   };
 
   var lastImageData;
@@ -328,7 +327,7 @@ var Tracker = function(cb, width, height) {
         return _.waitFor(function() {
           return source.getData();
         }).then(function() {
-          return calibrate();
+          return calibrate() ? null : Promise.reject('Headset not visible');
         });
       });
     }

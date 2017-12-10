@@ -15,7 +15,11 @@ var Host = function(width, height, mobileUrl, startSelector) {
   // ID that clients use to connect
   self.uuid = 1; //_.uuid();
 
-  socket.on('register', function(body) {
+  var sendStatus = function(type, data) {
+    socket.emit('status', self.uuid, type, data);
+  };
+
+  socket.on('register', function() {
     self.emit('clientConnected');
     self.emit('status', [{
       title: 'Calibration',
@@ -24,19 +28,23 @@ var Host = function(width, height, mobileUrl, startSelector) {
     }]);
   });
 
-  socket.on('hmdPlaced', function(body) {
-    self.emit('hmdPlaced');
+  socket.on('hmdPlaced', function() {
     tracker.calibrate().then(function() {
-      self.emit('calibrationFinished');
       self.emit('status', [{
         title: 'Space setup',
         description: 'Define the bounds of your work space by walking to the left, right and back-most positions and pulling the trigger once at every location'
       }]);
+      sendStatus('calibrationFinished');
+    }).catch(function(error) {
+      console.error(error)
+      self.emit('status', [{
+        title: 'No Headset visible',
+        description: 'Please check that your headset is visible in the camera preview then try again'
+      }]);
     });
   });
 
-  socket.on('playspaceFinished', function(body) {
-    self.emit('playspaceFinished');
+  socket.on('playspaceFinished', function() {
     self.emit('status', [{
       title: 'Enter VR',
       description: 'Put on your headset to start the experience'
@@ -90,13 +98,6 @@ var Host = function(width, height, mobileUrl, startSelector) {
   // Tracking can be restarted at any time
   self.stop = function() {
     return tracker.stop();
-  };
-
-  self.setEngineConfig = function(config) {
-    socket.emit('configuration', {
-      uuid: self.uuid,
-      config: config
-    });
   };
 };
 
