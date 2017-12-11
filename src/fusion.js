@@ -3,7 +3,7 @@ var _ = require('eakwell');
 
 var Utils = require('./utils.js');
 
-var Fusion = function(client) {
+var Fusion = function() {
   var self = this;
   _.eventHandling(self);
 
@@ -49,65 +49,6 @@ var Fusion = function(client) {
   var leftActive = false;
   var rightActive = false;
 
-  client.on('track', function(result) {
-    if(result.pose.hmd) {
-      headPredictor.feed(result.pose.hmd.position, result.delay);
-      absHmdOrientation.copy(result.pose.hmd.orientation);
-    }
-    if(result.pose.leftHand) {
-      leftPredictor.feed(result.pose.leftHand.position, result.delay);
-      absLeftOrientation.copy(result.pose.leftHand.orientation);
-      leftActive = result.pose.leftHand.active;
-    }
-    if(result.pose.rightHand) {
-      rightPredictor.feed(result.pose.rightHand.position, result.delay);
-      absRightOrientation.copy(result.pose.rightHand.orientation);
-      rightActive = result.pose.rightHand.active;
-    }
-  });
-
-  var getTrackedPose = function() {
-    return {
-      left: {
-        position: leftPredictor.predict(),
-        orientation: absLeftOrientation,
-        active: leftActive
-      },
-      right: {
-        position: rightPredictor.predict(),
-        orientation: absRightOrientation,
-        active: rightActive
-      },
-      head: {
-        position: headPredictor.predict(),
-        orientation: absHmdOrientation
-      }
-    };
-  };
-
-  // Update screen orientation
-  var screenOrientation = window.orientation || 0;
-
-  _.on(window, 'orientationchange', function(e) {
-    screenOrientation = window.orientation;
-    // Prevent white border problem in Safari
-    _.defer(function() {
-      window.scrollTo(0, 0);
-    }, 500);
-  });
-
-  // Update and predict device orientation
-  var alphaPredictor = new Predictor(0,    360, true);
-  var betaPredictor  = new Predictor(-180, 180, true);
-  var gammaPredictor = new Predictor(-90,  90,  true);
-
-  _.on(window, 'deviceorientation', function(e) {
-    alphaPredictor.feed(e.alpha);
-    betaPredictor.feed(e.beta);
-    gammaPredictor.feed(e.gamma);
-  });
-  //XXX Use devicemotion angular velocity directly instead of deviceorientation (more reliable fire rate)
-
   var getDeviceRotation = function() {
     return {
       alpha: alphaPredictor.predict() || 0,
@@ -121,11 +62,52 @@ var Fusion = function(client) {
     return toQuaternion(rotation.alpha, rotation.beta, rotation.gamma, screenOrientation);
   };
 
+  var getTrackedPose = function() {
+    return {
+      head: {
+        position: headPredictor.predict(),
+        orientation: absHmdOrientation
+      },
+      left: {
+        position: leftPredictor.predict(),
+        orientation: absLeftOrientation,
+        active: leftActive
+      },
+      right: {
+        position: rightPredictor.predict(),
+        orientation: absRightOrientation,
+        active: rightActive
+      }
+    };
+  };
+
+  // Update screen orientation
+  var screenOrientation = window.orientation || 0;
+
+  var landscapeHandler = _.on(window, 'orientationchange', function(e) {
+    screenOrientation = window.orientation;
+    // Prevent white border problem in Safari
+    _.defer(function() {
+      window.scrollTo(0, 0);
+    }, 500);
+  });
+
+  // Update and predict device orientation
+  var alphaPredictor = new Predictor(0,    360, true);
+  var betaPredictor  = new Predictor(-180, 180, true);
+  var gammaPredictor = new Predictor(-90,  90,  true);
+
+  var orientationHandler = _.on(window, 'deviceorientation', function(e) {
+    alphaPredictor.feed(e.alpha);
+    betaPredictor.feed(e.beta);
+    gammaPredictor.feed(e.gamma);
+  });
+  //XXX Use devicemotion angular velocity directly instead of deviceorientation (more reliable fire rate)
+
   // Integrate device motion to yield velocity
   var velocity = new THREE.Vector3(0, 0, 0);
-  var shakiness = 0;
 
-  _.on(window, 'devicemotion', function(e) {
+  var motionHandler = _.on(window, 'devicemotion', function(e) {
     // var acceleration = new THREE.Vector3(e.acceleration.x, e.acceleration.y, e.acceleration.z); // Portrait
     var acceleration = new THREE.Vector3(e.acceleration.y, -e.acceleration.x, -e.acceleration.z); // Landscape
     // Convert from device space to world space
@@ -168,6 +150,23 @@ var Fusion = function(client) {
   // Call calibrate once while oriented towards camera
   self.calibrate = function() {
     headingDivergence = getHeadingDiff();
+  };
+
+  self.feed = function(trackerData) {
+    if(trackerData.pose.hmd) {
+      headPredictor.feed(trackerData.pose.hmd.position, trackerData.delay);
+      absHmdOrientation.copy(trackerData.pose.hmd.orientation);
+    }
+    if(trackerData.pose.leftHand) {
+      leftPredictor.feed(trackerData.pose.leftHand.position, trackerData.delay);
+      absLeftOrientation.copy(trackerData.pose.leftHand.orientation);
+      leftActive = trackerData.pose.leftHand.active;
+    }
+    if(trackerData.pose.rightHand) {
+      rightPredictor.feed(trackerData.pose.rightHand.position, trackerData.delay);
+      absRightOrientation.copy(trackerData.pose.rightHand.orientation);
+      rightActive = trackerData.pose.rightHand.active;
+    }
   };
 
   self.update = function() {
@@ -229,6 +228,12 @@ var Fusion = function(client) {
     } else if(!self.body.right.active && lastRightActive) {
       self.emit('triggerEnd', ['right']);
     }
+  };
+
+  self.dispose = function() {
+    _.off(window, 'orientationchange', landscapeHandler);
+    _.off(window, 'deviceorientation', orientationHandler);
+    _.off(window, 'devicemotion', motionHandler);
   };
 };
 

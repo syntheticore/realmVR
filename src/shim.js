@@ -154,7 +154,7 @@ var RealmVRDisplay = function() {
       if(!sessionId) return ok();
       setCanvas(null);
       setOverlayCanvas(null);
-      //XXX self.device.stop();
+      device.dispose();
       device = null;
       emitEvent('vrdisplaypresentchange');
       ok();

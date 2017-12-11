@@ -16,7 +16,7 @@ var Device = function() {
   var sessionId = url.searchParams.get('realm-vr-session') || 1;
 
   var client = new Client(sessionId);
-  var fusion = new Fusion(client);
+  var fusion = new Fusion();
 
   var lenseOffsets = {
     left: 0.032,
@@ -24,6 +24,7 @@ var Device = function() {
   };
 
   client.on('track', function(data) {
+    fusion.feed(data);
     if(!data.pose.lenseOffsets) return;
     if(data.pose.lenseOffsets.left) lenseOffsets.left = data.pose.lenseOffsets.left;
     if(data.pose.lenseOffsets.right) lenseOffsets.right = data.pose.lenseOffsets.right;
@@ -36,31 +37,6 @@ var Device = function() {
       // window.dispatchEvent(new Event('headsetButtonPressed'));
     }, false);
   });
-
-  // Trigger events
-  self.proxy(fusion, 'trigger');
-  self.proxy(fusion, 'triggerEnd');
-
-  self.getPose = function() {
-    var pose = fusion.body;
-    pose.corrections = fusion.update();
-    var vmL = new THREE.Matrix4();
-    vmL.compose(pose.head.position, pose.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
-    pose.views = {
-      left: vmL,
-      right: vmL
-    };
-    return pose;
-  };
-
-  self.getProjections = function(depthNear, depthFar) {
-    var dn = 0.01;
-    var df = 10000;
-    return {
-      left: new THREE.Matrix4().makePerspective(-0.1, 0.1, 0.1, -0.1, depthNear || dn, depthFar || df),
-      right: new THREE.Matrix4().makePerspective(-0.1, 0.1, 0.1, -0.1, depthNear || dn, depthFar || df)
-    };
-  };
 
   // Let the player define the bounds of the play space
   // by pressing the headset button in three different locations
@@ -90,10 +66,40 @@ var Device = function() {
     });
   };
 
+  // Trigger events
+  self.proxy(fusion, 'trigger');
+  self.proxy(fusion, 'triggerEnd');
+
+  self.getPose = function() {
+    var pose = fusion.body;
+    pose.corrections = fusion.update();
+    var vmL = new THREE.Matrix4();
+    vmL.compose(pose.head.position, pose.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
+    pose.views = {
+      left: vmL,
+      right: vmL
+    };
+    return pose;
+  };
+
+  self.getProjections = function(depthNear, depthFar) {
+    var dn = 0.01;
+    var df = 10000;
+    return {
+      left: new THREE.Matrix4().makePerspective(-0.1, 0.1, 0.1, -0.1, depthNear || dn, depthFar || df),
+      right: new THREE.Matrix4().makePerspective(-0.1, 0.1, 0.1, -0.1, depthNear || dn, depthFar || df)
+    };
+  };
+
   self.setup = function() {
     return calibrate().then(collectBounds).then(function() {
       client.sendStatus('playspaceFinished');
     });
+  };
+
+  self.dispose = function() {
+    client.dispose();
+    fusion.dispose();
   };
 };
 
