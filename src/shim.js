@@ -127,9 +127,14 @@ var RealmVRDisplay = function() {
       } else {
         var selector = window.event && window.event.type + '-' + getSelector(window.event.target);
         var ui = new TrackerUI(selector);
-        // ui.startTracker().then(ok).catch(fail);
-        ui.startTracker();
-        return fail('Presentation happens on the mobile device');
+        ui.startTracker().then(function() {
+          // Fail to prevent app from going fullscreen, but lie
+          // about presentation to keep the animation loop blocked
+          self.isPresenting = true;
+          fail('Presentation happens on the mobile device');
+        }).catch(function(error) {
+          fail(error);
+        });
       }
     });
   };
@@ -145,9 +150,10 @@ var RealmVRDisplay = function() {
   self.exitPresent = function() {
     return new Promise(function(ok, fail) {
       if(!self.isPresenting) return fail('Not presenting');
+      self.isPresenting = false;
+      if(!sessionId) return ok();
       setCanvas(null);
       setOverlayCanvas(null);
-      self.isPresenting = false;
       //XXX self.device.stop();
       device = null;
       emitEvent('vrdisplaypresentchange');
@@ -236,7 +242,7 @@ var installDriver = function() {
   };
 
   var getVRDisplays = navigator.getVRDisplays ?
-    navigator.getVRDisplays.bind(navigator) : function() { return Promise.resolve([]) }
+    navigator.getVRDisplays.bind(navigator) : function() { return Promise.resolve([]); };
 
   navigator.getVRDisplays = function() {
     return getVRDisplays().then(function(displays) {

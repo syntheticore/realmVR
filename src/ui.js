@@ -166,6 +166,7 @@ var UI = function(startSelector) {
         title: 'We have a problem',
         description: error
       });
+      return Promise.reject(error);
     });
   };
 };

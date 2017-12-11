@@ -32,8 +32,8 @@ var Receiver = function(sessionId) {
     socket.emit('status', sessionId, type, data);
   };
 
-  LOG = function(txt) {
-    socket.emit('debug', txt);
+  self.dispose = function() {
+    socket.close();
   };
 };
 
