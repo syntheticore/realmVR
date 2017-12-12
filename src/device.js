@@ -70,18 +70,25 @@ var Device = function() {
   self.proxy(fusion, 'trigger');
   self.proxy(fusion, 'triggerEnd');
 
+  // Estimate the current pose of HMD and both controllers
   self.getPose = function() {
     var pose = fusion.body;
     pose.corrections = fusion.update();
+    // Generate view matrices for both eyes
     var vmL = new THREE.Matrix4();
-    vmL.compose(pose.head.position, pose.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
+    var vmR = new THREE.Matrix4();
+    var leftPos = pose.head.position.clone().setX(pose.head.position.x + lenseOffsets.left);
+    var rightPos = pose.head.position.clone().setX(pose.head.position.x - lenseOffsets.right);
+    vmL.compose(leftPos, pose.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmL);
+    vmR.compose(rightPos, pose.head.orientation, new THREE.Vector3(1, 1, 1)).getInverse(vmR);
     pose.views = {
       left: vmL,
-      right: vmL
+      right: vmR
     };
     return pose;
   };
 
+  // Generate projection matrices for both eyes
   self.getProjections = function(depthNear, depthFar) {
     var dn = 0.01;
     var df = 10000;
