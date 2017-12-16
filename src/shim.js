@@ -37,8 +37,7 @@ var RealmVRDisplay = function() {
   //   sizeY: 2
   // };
 
-  var appendCanvas = function(c) {
-    document.body.appendChild(c);
+  var displayCanvas = function(c) {
     c.style.position = 'fixed';
     c.style.top = 0;
     c.style.left = 0;
@@ -48,10 +47,9 @@ var RealmVRDisplay = function() {
   };
 
   var setCanvas = function(c) {
-    if(canvas) document.body.removeChild(canvas);
     canvas = c;
     if(!canvas) return;
-    appendCanvas(canvas);
+    displayCanvas(canvas);
     canvas.style.background = 'black';
   };
 
@@ -59,7 +57,8 @@ var RealmVRDisplay = function() {
     if(overlayCanvas) document.body.removeChild(overlayCanvas);
     overlayCanvas = c;
     if(!overlayCanvas) return;
-    appendCanvas(overlayCanvas);
+    displayCanvas(overlayCanvas);
+    document.body.appendChild(overlayCanvas);
   };
 
   self.getEyeParameters = function() {
@@ -264,21 +263,37 @@ var installDriver = function() {
     return gamepads;
   };
 
-  // window.VRFrameData = window.VRFrameData || function VRFrameData() {
+  var NativeVRFrameData = window.VRFrameData;
+  if(NativeVRFrameData) {
+    var nativeFrameData = new window.VRFrameData();
+    var nativeGetFrameData = window.VRDisplay.prototype.getFrameData;
+
+    window.VRDisplay.prototype.getFrameData = function(frameData) {
+      if(frameData instanceof NativeVRFrameData) {
+        return nativeGetFrameData.call(this, frameData);
+      }
+      nativeGetFrameData.call(this, nativeFrameData);
+      frameData.pose = nativeFrameData.pose;
+      frameData.leftProjectionMatrix = nativeFrameData.leftProjectionMatrix;
+      frameData.rightProjectionMatrix = nativeFrameData.rightProjectionMatrix;
+      frameData.leftViewMatrix = nativeFrameData.leftViewMatrix;
+      frameData.rightViewMatrix = nativeFrameData.rightViewMatrix;
+    };
+  }
+
   window.VRFrameData = function VRFrameData() {
     this.leftProjectionMatrix = new Float32Array(16);
     this.leftViewMatrix = new Float32Array(16);
     this.rightProjectionMatrix = new Float32Array(16);
     this.rightViewMatrix = new Float32Array(16);
     this.pose = {
-      position: Float32Array.from([0, 0, 0]),
-      linearVelocity: Float32Array.from([0, 0, 0]),
-      linearAcceleration: Float32Array.from([0, 0, 0]),
-      orientation: Float32Array.from([0, 0, 0, 0]),
-      angularVelocity: Float32Array.from([0, 0, 0]),
-      angularAcceleration: Float32Array.from([0, 0, 0]),
+      position: new Float32Array(3),
+      linearVelocity: new Float32Array(3),
+      linearAcceleration: new Float32Array(3),
+      orientation: new Float32Array(4),
+      angularVelocity: new Float32Array(3),
+      angularAcceleration: new Float32Array(3)
     };
-    this.timestamp = Date.now();
   };
 
   var addEventListener = EventTarget.prototype.addEventListener;
